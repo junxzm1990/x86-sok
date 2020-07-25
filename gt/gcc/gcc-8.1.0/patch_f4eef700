@@ -1,0 +1,647 @@
+diff --git a/Makefile.in b/Makefile.in
+index 20bee049..84d0d2de 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -1281,6 +1281,7 @@ OBJS = \
+ 	dwarf2asm.o \
+ 	dwarf2cfi.o \
+ 	dwarf2out.o \
++	bbInfo2asm.o \
+ 	early-remat.o \
+ 	emit-rtl.o \
+ 	et-forest.o \
+diff --git a/README.md b/README.md
+new file mode 100644
+index 00000000..00d04885
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1 @@
++gcc-8.1.0
+diff --git a/bbInfo2asm.c b/bbInfo2asm.c
+new file mode 100644
+index 00000000..6cea2228
+--- /dev/null
++++ b/bbInfo2asm.c
+@@ -0,0 +1,88 @@
++/*
++ * bbInfo2asm.c
++ *
++ * output the basic block related information to asm file
++ *
++ * This file is part of GCC.
++ */
++
++#include "config.h"
++#include "system.h"
++#include "coretypes.h"
++#include "target.h"
++#include "output.h"
++#include "bbInfo2asm.h"
++#include "varasm.h"
++
++// bbInfo magic string
++#define MAGIC_STRING "bbInfo_"
++
++// mark the basic block begin location
++#define BB_BEGIN_MARK "BB"
++
++// mark the basic block end location
++#define BB_END_MARK "BE"
++
++// mark the function start location
++#define FUN_BEGIN_MARK "FUNB"
++
++// mark the function end location
++#define FUN_END_MARK "FUNE"
++
++// mark the jump table information
++#define JMP_TABLE_INFO "JMPTBL"
++
++// mark the asm inline start information
++#define INLINE_START "INLINEB"
++#define INLINE_END "INLINEE"
++
++#define BLOCK_BEGIN_LABEL MAGIC_STRING BB_BEGIN_MARK
++#define BLOCK_END_LABEL MAGIC_STRING BB_END_MARK
++#define FUN_BEGIN_LABEL MAGIC_STRING FUN_BEGIN_MARK
++#define FUN_END_LABEL MAGIC_STRING FUN_END_MARK
++#define JMP_TABLE_LABEL MAGIC_STRING JMP_TABLE_INFO
++#define INLINE_START_LABEL MAGIC_STRING INLINE_START
++#define INLINE_END_LABEL MAGIC_STRING INLINE_END
++
++#define ASM_OUTPUT_DIRECTIVE(FILE, PREFIX) \
++      fprintf (FILE, "\t.%s\n", PREFIX)
++
++// output the basic block begin label
++// if fall_through = 0, not fall through; otherwise, fall through
++void bbinfo2_asm_block_begin(){
++    switch_to_section(current_function_section());
++    ASM_OUTPUT_DIRECTIVE(asm_out_file, BLOCK_BEGIN_LABEL);
++}
++
++// output the basic block end label
++void bbinfo2_asm_block_end(uint32_t fallThrough){
++    switch_to_section(current_function_section());
++    fprintf(asm_out_file, "\t.%s %d\n", BLOCK_END_LABEL, fallThrough);
++}
++
++// output the function begin label
++void bbinfo2_asm_func_begin(){
++    switch_to_section(current_function_section());
++    ASM_OUTPUT_DIRECTIVE(asm_out_file, FUN_BEGIN_LABEL);
++}
++
++// output the jump table information, includeing table size and entry size
++void bbinfo2_asm_func_end(){
++    switch_to_section(current_function_section());
++    ASM_OUTPUT_DIRECTIVE(asm_out_file, FUN_END_LABEL);
++}
++
++// output the jump table information, including table size and entry size
++void bbinfo2_asm_jumptable(uint32_t table_size, uint32_t entry_size){
++    //switch_to_section(current_function_section());
++    fprintf(asm_out_file, "\t.%s %d %d\n", JMP_TABLE_LABEL, table_size, entry_size);
++}
++
++void bbinfo2_asm_inline_start(){
++    ASM_OUTPUT_DIRECTIVE(asm_out_file, INLINE_START_LABEL);
++}
++
++void bbinfo2_asm_inline_end(){
++    ASM_OUTPUT_DIRECTIVE(asm_out_file, INLINE_END_LABEL); 
++}
++
+diff --git a/bbInfo2asm.h b/bbInfo2asm.h
+new file mode 100644
+index 00000000..84d60f76
+--- /dev/null
++++ b/bbInfo2asm.h
+@@ -0,0 +1,31 @@
++/*
++ * bbInfo2asm.h
++ * 
++ * Here we output basic block related information to asm file. 
++ * Including basic block boundries(includeing alignment), basic block fall through
++ * jump table entries and function boundries.
++ */
++
++#ifndef GCC_BBINFO2ASM_H
++#define GCC_BBINFO2ASM_H 1
++
++// output the basic block begin label
++extern void bbinfo2_asm_block_begin();
++
++// output the basic block end label
++extern void bbinfo2_asm_block_end(uint32_t);
++
++// output the jump table information, including table size and entry size
++extern void bbinfo2_asm_jumptable(uint32_t table_size, uint32_t entry_size);
++
++// output the function begin label
++extern void bbinfo2_asm_func_begin();
++
++// output the function end label
++extern void bbinfo2_asm_func_end();
++
++// output the asm inline start label
++extern void bbinfo2_asm_inline_start();
++extern void bbinfo2_asm_inline_end();
++
++#endif
+diff --git a/cfg.c b/cfg.c
+index 11026e72..c6a6807d 100644
+--- a/cfg.c
++++ b/cfg.c
+@@ -481,7 +481,23 @@ check_bb_profile (basic_block bb, FILE * file, int indent)
+         }
+     }
+ }
+-
++
++// binpang, add
++// if the edge is fall through, return true
++bool edge_fall_through(edge e){
++
++      int i, flags = e->flags;
++      gcc_assert (e->flags <= EDGE_ALL_FLAGS);
++      for (i = 0; flags; i++)
++	if (flags & (1 << i))
++	  {
++	    flags &= ~(1 << i);
++
++	    if (i == 0)
++		    return true;
++	  }
++      return false;
++}
+ void
+ dump_edge_info (FILE *file, edge e, dump_flags_t flags, int do_succ)
+ {
+diff --git a/cfg.h b/cfg.h
+index 09534567..1f37951d 100644
+--- a/cfg.h
++++ b/cfg.h
+@@ -93,6 +93,7 @@ extern void redirect_edge_succ (edge, basic_block);
+ extern void redirect_edge_pred (edge, basic_block);
+ extern void clear_bb_flags (void);
+ extern void dump_edge_info (FILE *, edge, dump_flags_t, int);
++extern bool edge_fall_through(edge);
+ extern void debug (edge_def &ref);
+ extern void debug (edge_def *ptr);
+ extern void alloc_aux_for_blocks (int);
+diff --git a/final.c b/final.c
+index 19817e24..10f8157e 100644
+--- a/final.c
++++ b/final.c
+@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
+ #include "asan.h"
+ #include "rtl-iter.h"
+ #include "print-rtl.h"
++#include "bbInfo2asm.h" //binpang added
+ 
+ #ifdef XCOFF_DEBUGGING_INFO
+ #include "xcoffout.h"		/* Needed for external data declarations.  */
+@@ -265,6 +266,10 @@ app_enable (void)
+ {
+   if (! app_on)
+     {
++	  // binpang, add
++	  // mark that this is the begining of inline
++	  bbinfo2_asm_inline_start();
++
+       fputs (ASM_APP_ON, asm_out_file);
+       app_on = 1;
+     }
+@@ -280,6 +285,10 @@ app_disable (void)
+     {
+       fputs (ASM_APP_OFF, asm_out_file);
+       app_on = 0;
++
++	  // binpang, add
++	  // mark that this is the end of inline
++	  bbinfo2_asm_inline_end();
+     }
+ }
+ 
+@@ -1807,6 +1816,10 @@ final_start_function_1 (rtx_insn **firstp, FILE *file, int *seen,
+   if (!dwarf2_debug_info_emitted_p (current_function_decl))
+     dwarf2out_begin_prologue (0, 0, NULL);
+ 
++  // binpang, add
++  // output function begin directive
++  bbinfo2_asm_func_begin();
++
+ #ifdef LEAF_REG_REMAP
+   if (crtl->uses_only_leaf_regs)
+     leaf_renumber_regs (first);
+@@ -1963,10 +1976,43 @@ final_end_function (void)
+   if (!dwarf2_debug_info_emitted_p (current_function_decl)
+       && dwarf2out_do_frame ())
+     dwarf2out_end_epilogue (last_linenum, last_filename);
++  
++  // binpang add
++  // output function end directive
++  bbinfo2_asm_func_end();
+ 
+   some_local_dynamic_name = 0;
+ }
+-
++
++/* Dump the basic block marker information. FILE is the assembly
++ * output file, and INSN is the instruction being emitted.
++ */
++
++static void
++dump_basic_block_mark (FILE *file, rtx_insn *insn, basic_block *start_to_bb,
++		basic_block *end_to_bb, int bb_map_size)
++{
++    basic_block bb;
++
++    if (INSN_UID(insn) < bb_map_size
++	    && (bb = start_to_bb[INSN_UID(insn)]) != NULL)
++    {
++	// BUG. only -dA can output the directive, fix later.
++	bbinfo2_asm_block_begin();
++    }
++    if (INSN_UID(insn) < bb_map_size
++	    && (bb = end_to_bb[INSN_UID(insn)]) != NULL)
++    {
++	edge e;
++	edge_iterator ei;
++	uint32_t fall_through = 0;
++	FOR_EACH_EDGE (e, ei, bb->succs){
++	  if(edge_fall_through(e))
++	   fall_through = 1;   
++	}
++	bbinfo2_asm_block_end(fall_through);
++    }
++}
+ 
+ /* Dumper helper for basic block information. FILE is the assembly
+    output file, and INSN is the instruction being emitted.  */
+@@ -2050,8 +2096,9 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
+ 
+   CC_STATUS_INIT;
+ 
+-  if (flag_debug_asm)
+-    {
++  // binpang, comment out
++  // if (flag_debug_asm)
++  //{
+       basic_block bb;
+ 
+       bb_map_size = get_max_uid () + 1;
+@@ -2065,7 +2112,7 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
+ 	    start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
+ 	    end_to_bb[INSN_UID (BB_END (bb))] = bb;
+ 	  }
+-    }
++  //  }
+ 
+   /* Output the insns.  */
+   for (insn = first; insn;)
+@@ -2088,16 +2135,20 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
+ 
+       dump_basic_block_info (file, insn, start_to_bb, end_to_bb,
+                              bb_map_size, &bb_seqn);
++      dump_basic_block_mark(file, insn, start_to_bb, end_to_bb,
++		      bb_map_size); // binpang, add
+       insn = final_scan_insn (insn, file, optimize_p, 0, &seen);
++
+     }
+ 
+   maybe_output_next_view (&seen);
+ 
+-  if (flag_debug_asm)
+-    {
++  // binpang, comment out
++  //if (flag_debug_asm)
++   // {
+       free (start_to_bb);
+       free (end_to_bb);
+-    }
++    //}
+ 
+   /* Remove CFI notes, to avoid compare-debug failures.  */
+   for (insn = first; insn; insn = next)
+@@ -2666,6 +2717,13 @@ final_scan_insn_1 (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
+ 	      }
+ #else
+ 	    vlen = XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC);
++	    //binpang, debug, print jump table information
++	    rtx_jump_table_data *table_tmp = dyn_cast<rtx_jump_table_data*>(insn);
++	    if(table_tmp){
++		uint32_t entry_size = GET_MODE_SIZE(table_tmp->get_data_mode());
++		bbinfo2_asm_jumptable(vlen, entry_size);
++	    }
++	    //binpang, finish
+ 	    for (idx = 0; idx < vlen; idx++)
+ 	      {
+ 		if (GET_CODE (body) == ADDR_VEC)
+diff --git a/patch_ed60e469 b/patch_ed60e469
+new file mode 100644
+index 00000000..49157b84
+--- /dev/null
++++ b/patch_ed60e469
+@@ -0,0 +1,301 @@
++diff --git a/Makefile.in b/Makefile.in
++index 20bee049..84d0d2de 100644
++--- a/Makefile.in
+++++ b/Makefile.in
++@@ -1281,6 +1281,7 @@ OBJS = \
++ 	dwarf2asm.o \
++ 	dwarf2cfi.o \
++ 	dwarf2out.o \
+++	bbInfo2asm.o \
++ 	early-remat.o \
++ 	emit-rtl.o \
++ 	et-forest.o \
++diff --git a/README.md b/README.md
++new file mode 100644
++index 00000000..00d04885
++--- /dev/null
+++++ b/README.md
++@@ -0,0 +1 @@
+++gcc-8.1.0
++diff --git a/bbInfo2asm.c b/bbInfo2asm.c
++new file mode 100644
++index 00000000..f7b791ff
++--- /dev/null
+++++ b/bbInfo2asm.c
++@@ -0,0 +1,75 @@
+++/*
+++ * bbInfo2asm.c
+++ *
+++ * output the basic block related information to asm file
+++ *
+++ * This file is part of GCC.
+++ */
+++
+++#include "config.h"
+++#include "system.h"
+++#include "coretypes.h"
+++#include "target.h"
+++#include "output.h"
+++#include "bbInfo2asm.h"
+++#include "varasm.h"
+++
+++// bbInfo magic string
+++#define MAGIC_STRING "bbInfo_"
+++
+++// mark the basic block begin location
+++#define BB_BEGIN_MARK "BB"
+++
+++// mark the basic block end location
+++#define BB_END_MARK "BE"
+++
+++// mark the function start location
+++#define FUN_BEGIN_MARK "FUNB"
+++
+++// mark the function end location
+++#define FUN_END_MARK "FUNE"
+++
+++// mark the jump table information
+++#define JMP_TABLE_INFO "JMPTBL"
+++
+++#define BLOCK_BEGIN_LABEL MAGIC_STRING BB_BEGIN_MARK
+++#define BLOCK_END_LABEL MAGIC_STRING BB_END_MARK
+++#define FUN_BEGIN_LABEL MAGIC_STRING FUN_BEGIN_MARK
+++#define FUN_END_LABEL MAGIC_STRING FUN_END_MARK
+++#define JMP_TABLE_LABEL MAGIC_STRING JMP_TABLE_INFO
+++
+++#define ASM_OUTPUT_DIRECTIVE(FILE, PREFIX) \
+++      fprintf (FILE, "\t.%s\n", PREFIX)
+++
+++// output the basic block begin label
+++// if fall_through = 0, not fall through; otherwise, fall through
+++void bbinfo2_asm_block_begin(){
+++    switch_to_section(current_function_section());
+++    ASM_OUTPUT_DIRECTIVE(asm_out_file, BLOCK_BEGIN_LABEL);
+++}
+++
+++// output the basic block end label
+++void bbinfo2_asm_block_end(uint32_t fallThrough){
+++    switch_to_section(current_function_section());
+++    fprintf(asm_out_file, "\t.%s %d\n", BLOCK_END_LABEL, fallThrough);
+++}
+++
+++// output the function begin label
+++void bbinfo2_asm_func_begin(){
+++    switch_to_section(current_function_section());
+++    ASM_OUTPUT_DIRECTIVE(asm_out_file, FUN_BEGIN_LABEL);
+++}
+++
+++// output the jump table information, includeing table size and entry size
+++void bbinfo2_asm_func_end(){
+++    switch_to_section(current_function_section());
+++    ASM_OUTPUT_DIRECTIVE(asm_out_file, FUN_END_LABEL);
+++}
+++
+++// output the jump table information, including table size and entry size
+++void bbinfo2_asm_jumptable(uint32_t table_size, uint32_t entry_size){
+++    //switch_to_section(current_function_section());
+++    fprintf(asm_out_file, "\t.%s %d %d\n", JMP_TABLE_LABEL, table_size, entry_size);
+++}
+++
+++
++diff --git a/bbInfo2asm.h b/bbInfo2asm.h
++new file mode 100644
++index 00000000..56a6c318
++--- /dev/null
+++++ b/bbInfo2asm.h
++@@ -0,0 +1,27 @@
+++/*
+++ * bbInfo2asm.h
+++ * 
+++ * Here we output basic block related information to asm file. 
+++ * Including basic block boundries(includeing alignment), basic block fall through
+++ * jump table entries and function boundries.
+++ */
+++
+++#ifndef GCC_BBINFO2ASM_H
+++#define GCC_BBINFO2ASM_H 1
+++
+++// output the basic block begin label
+++extern void bbinfo2_asm_block_begin();
+++
+++// output the basic block end label
+++extern void bbinfo2_asm_block_end(uint32_t);
+++
+++// output the jump table information, including table size and entry size
+++extern void bbinfo2_asm_jumptable(uint32_t table_size, uint32_t entry_size);
+++
+++// output the function begin label
+++extern void bbinfo2_asm_func_begin();
+++
+++// output the function end label
+++extern void bbinfo2_asm_func_end();
+++
+++#endif
++diff --git a/cfg.c b/cfg.c
++index 11026e72..c6a6807d 100644
++--- a/cfg.c
+++++ b/cfg.c
++@@ -481,7 +481,23 @@ check_bb_profile (basic_block bb, FILE * file, int indent)
++         }
++     }
++ }
++-
+++
+++// binpang, add
+++// if the edge is fall through, return true
+++bool edge_fall_through(edge e){
+++
+++      int i, flags = e->flags;
+++      gcc_assert (e->flags <= EDGE_ALL_FLAGS);
+++      for (i = 0; flags; i++)
+++	if (flags & (1 << i))
+++	  {
+++	    flags &= ~(1 << i);
+++
+++	    if (i == 0)
+++		    return true;
+++	  }
+++      return false;
+++}
++ void
++ dump_edge_info (FILE *file, edge e, dump_flags_t flags, int do_succ)
++ {
++diff --git a/cfg.h b/cfg.h
++index 09534567..1f37951d 100644
++--- a/cfg.h
+++++ b/cfg.h
++@@ -93,6 +93,7 @@ extern void redirect_edge_succ (edge, basic_block);
++ extern void redirect_edge_pred (edge, basic_block);
++ extern void clear_bb_flags (void);
++ extern void dump_edge_info (FILE *, edge, dump_flags_t, int);
+++extern bool edge_fall_through(edge);
++ extern void debug (edge_def &ref);
++ extern void debug (edge_def *ptr);
++ extern void alloc_aux_for_blocks (int);
++diff --git a/final.c b/final.c
++index 19817e24..72601663 100644
++--- a/final.c
+++++ b/final.c
++@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
++ #include "asan.h"
++ #include "rtl-iter.h"
++ #include "print-rtl.h"
+++#include "bbInfo2asm.h" //binpang added
++ 
++ #ifdef XCOFF_DEBUGGING_INFO
++ #include "xcoffout.h"		/* Needed for external data declarations.  */
++@@ -1807,6 +1808,10 @@ final_start_function_1 (rtx_insn **firstp, FILE *file, int *seen,
++   if (!dwarf2_debug_info_emitted_p (current_function_decl))
++     dwarf2out_begin_prologue (0, 0, NULL);
++ 
+++  // binpang, add
+++  // output function begin directive
+++  bbinfo2_asm_func_begin();
+++
++ #ifdef LEAF_REG_REMAP
++   if (crtl->uses_only_leaf_regs)
++     leaf_renumber_regs (first);
++@@ -1963,10 +1968,43 @@ final_end_function (void)
++   if (!dwarf2_debug_info_emitted_p (current_function_decl)
++       && dwarf2out_do_frame ())
++     dwarf2out_end_epilogue (last_linenum, last_filename);
+++  
+++  // binpang add
+++  // output function end directive
+++  bbinfo2_asm_func_end();
++ 
++   some_local_dynamic_name = 0;
++ }
++-
+++
+++/* Dump the basic block marker information. FILE is the assembly
+++ * output file, and INSN is the instruction being emitted.
+++ */
+++
+++static void
+++dump_basic_block_mark (FILE *file, rtx_insn *insn, basic_block *start_to_bb,
+++		basic_block *end_to_bb, int bb_map_size)
+++{
+++    basic_block bb;
+++
+++    if (INSN_UID(insn) < bb_map_size
+++	    && (bb = start_to_bb[INSN_UID(insn)]) != NULL)
+++    {
+++	// BUG. only -dA can output the directive, fix later.
+++	bbinfo2_asm_block_begin();
+++    }
+++    if (INSN_UID(insn) < bb_map_size
+++	    && (bb = end_to_bb[INSN_UID(insn)]) != NULL)
+++    {
+++	edge e;
+++	edge_iterator ei;
+++	uint32_t fall_through = 0;
+++	FOR_EACH_EDGE (e, ei, bb->succs){
+++	  if(edge_fall_through(e))
+++	   fall_through = 1;   
+++	}
+++	bbinfo2_asm_block_end(fall_through);
+++    }
+++}
++ 
++ /* Dumper helper for basic block information. FILE is the assembly
++    output file, and INSN is the instruction being emitted.  */
++@@ -2050,8 +2088,9 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
++ 
++   CC_STATUS_INIT;
++ 
++-  if (flag_debug_asm)
++-    {
+++  // binpang, comment out
+++  // if (flag_debug_asm)
+++  //{
++       basic_block bb;
++ 
++       bb_map_size = get_max_uid () + 1;
++@@ -2065,7 +2104,7 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
++ 	    start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
++ 	    end_to_bb[INSN_UID (BB_END (bb))] = bb;
++ 	  }
++-    }
+++  //  }
++ 
++   /* Output the insns.  */
++   for (insn = first; insn;)
++@@ -2088,16 +2127,20 @@ final_1 (rtx_insn *first, FILE *file, int seen, int optimize_p)
++ 
++       dump_basic_block_info (file, insn, start_to_bb, end_to_bb,
++                              bb_map_size, &bb_seqn);
+++      dump_basic_block_mark(file, insn, start_to_bb, end_to_bb,
+++		      bb_map_size); // binpang, add
++       insn = final_scan_insn (insn, file, optimize_p, 0, &seen);
+++
++     }
++ 
++   maybe_output_next_view (&seen);
++ 
++-  if (flag_debug_asm)
++-    {
+++  // binpang, comment out
+++  //if (flag_debug_asm)
+++   // {
++       free (start_to_bb);
++       free (end_to_bb);
++-    }
+++    //}
++ 
++   /* Remove CFI notes, to avoid compare-debug failures.  */
++   for (insn = first; insn; insn = next)
++@@ -2666,6 +2709,13 @@ final_scan_insn_1 (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
++ 	      }
++ #else
++ 	    vlen = XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC);
+++	    //binpang, debug, print jump table information
+++	    rtx_jump_table_data *table_tmp = dyn_cast<rtx_jump_table_data*>(insn);
+++	    if(table_tmp){
+++		uint32_t entry_size = GET_MODE_SIZE(table_tmp->get_data_mode());
+++		bbinfo2_asm_jumptable(vlen, entry_size);
+++	    }
+++	    //binpang, finish
++ 	    for (idx = 0; idx < vlen; idx++)
++ 	      {
++ 		if (GET_CODE (body) == ADDR_VEC)
