@@ -1,0 +1,115 @@
+[binpang]: current op address is 0x4037e4
+[binpang]: current op address is 0x4037e7
+[binpang]: current op address is 0x4037ea
+[binpang]: current op address is 0x4037ed
+switch at 0x403802
+	default case 0x4056f9
+	#cases: 5
+[binpang, jmptbl]: switch table (5 cases) at 0x403802
+[binpang]: current op address is 0x40c4fe
+[binpang]: current op address is 0x40c501
+[binpang]: current op address is 0x40c502
+[binpang]: current op address is 0x40c509
+[binpang]: current op address is 0x40c510
+[binpang]: current op address is 0x40c517
+[binpang]: current op address is 0x40c51e
+[binpang]: current op address is 0x40c525
+[binpang]: current op address is 0x40c52c
+[binpang]: current op address is 0x40c533
+[binpang]: current op address is 0x40c53b
+[binpang]: current op address is 0x40c543
+[binpang]: current op address is 0x40c54b
+[binpang]: current op address is 0x40c553
+[binpang]: current op address is 0x40c557
+[binpang]: current op address is 0x40c55c
+switch at 0x40c59e
+	default case 0x40c70a
+	#cases: 2
+[binpang]: current op address is 0x40cdae
+[binpang]: current op address is 0x40cdb2
+[binpang]: current op address is 0x40cdb5
+[binpang]: current op address is 0x40cdb9
+[binpang]: current op address is 0x40cdbc
+[binpang]: current op address is 0x40cdc3
+[binpang]: current op address is 0x40cdc6
+[binpang]: current op address is 0x40cdc9
+[binpang]: current op address is 0x40cdcc
+[binpang]: current op address is 0x40cdcf
+switch at 0x40cdde
+	default case 0x40cde0
+	#cases: 34
+[binpang, jmptbl]: switch table (34 cases) at 0x40cdde
+[binpang]: current op address is 0x40c7c9
+[binpang]: current op address is 0x40c7cd
+[binpang]: current op address is 0x40c7d0
+[binpang]: current op address is 0x40c7d3
+[binpang]: current op address is 0x40c7d6
+[binpang]: current op address is 0x40c7da
+switch at 0x40c7ed
+	default case 0x40cc66
+	#cases: 127
+[binpang]: current op address is 0x40c9cd
+[binpang]: current op address is 0x40c9d1
+[binpang]: current op address is 0x40c9d8
+[binpang]: current op address is 0x40c9db
+[binpang]: current op address is 0x40c9de
+[binpang]: current op address is 0x40c9e1
+[binpang]: current op address is 0x40c9e4
+switch at 0x40c9f7
+	default case 0x40caae
+	#cases: 30
+[binpang, jmptbl]: switch table (30 cases) at 0x40c9f7
+[binpang, jmptbl]: switch table (127 cases) at 0x40c7ed
+[binpang, jmptbl]: switch table (2 cases) at 0x40c59e
+[binpang]: current op address is 0x4037e4
+[binpang]: current op address is 0x4037e7
+[binpang]: current op address is 0x4037ea
+[binpang]: current op address is 0x4037ed
+switch at 0x403802
+	default case 0x4056f9
+	#cases: 5
+[binpang, jmptbl]: switch table (5 cases) at 0x403802
+[binpang]: current op address is 0x40fc57
+[binpang]: current op address is 0x40fc5a
+[binpang]: current op address is 0x40fc5d
+[binpang]: current op address is 0x40fc60
+switch at 0x40fc75
+	default case 0x4118be
+	#cases: 5
+[binpang, jmptbl]: switch table (5 cases) at 0x40fc75
+[binpang]: current op address is 0x406f13
+[binpang]: current op address is 0x406f16
+[binpang]: current op address is 0x406f18
+[binpang]: current op address is 0x406f1f
+[binpang]: current op address is 0x406f22
+[binpang]: current op address is 0x406f25
+[binpang]: current op address is 0x406f2a
+[binpang]: current op address is 0x406f2d
+[binpang]: current op address is 0x406f30
+[binpang]: current op address is 0x406f33
+[binpang]: current op address is 0x406f37
+[binpang]: current op address is 0x406f3a
+[binpang]: current op address is 0x406f3e
+[binpang]: current op address is 0x406f41
+[binpang]: current op address is 0x406f45
+[binpang]: current op address is 0x406f48
+[binpang]: current op address is 0x406f4b
+[binpang]: current op address is 0x406f4f
+[binpang]: current op address is 0x406f56
+[binpang]: current op address is 0x406f5d
+[binpang]: current op address is 0x406f61
+[binpang]: current op address is 0x406f65
+[binpang]: current op address is 0x406f6c
+[binpang]: current op address is 0x406f73
+[binpang]: current op address is 0x406f77
+[binpang]: current op address is 0x406f7b
+[binpang]: current op address is 0x406f82
+[binpang]: current op address is 0x406f89
+[binpang]: current op address is 0x406f8d
+[binpang]: current op address is 0x406f94
+[binpang]: current op address is 0x406f97
+[binpang]: current op address is 0x406f9a
+switch at 0x406fad
+	default case 0x40886d
+	#cases: 88
+[binpang, jmptbl]: switch table (88 cases) at 0x406fad
