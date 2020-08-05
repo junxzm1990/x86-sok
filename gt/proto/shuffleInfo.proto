@@ -1,0 +1,65 @@
+// This file defines the buffer protocol of the shuffleInfo for reordering.
+// The following command automatically generates both the declaration 
+// and the implementation of shuffleInfo class.
+//    $ protoc --cpp_out=$DST_DIR shuffleInfo.proto       # C++
+//    $ protoc --python_out=$DST_DIR shuffleInfo.proto    # Python
+// The following command generates the shared object.
+//    $ c++ -fPIC -shared shuffleInfo.pb.cc -o shuffleInfo.so `pkg-config --cflags --libs protobuf`
+// Revised: 4/22/18
+
+syntax = "proto2";
+package ShuffleInfo;
+
+message ReorderInfo {
+  // Binary info from ld or ld.gold; reordering range and main offset
+  message BinaryInfo {
+    optional uint32 rand_obj_offset = 1;  // PLACEHOLDER FOR LINKER
+    optional uint32 main_addr_offset = 2; // PLACEHOLDER FOR LINKER
+    optional uint32 obj_sz = 3;           // Verification purpose
+    optional uint32 src_type = 4;         // See the SourceInfo message
+  }
+
+  // Code layout Info (.text) from LLVM
+  // Embeded info ([#func|#fixup]/obj, [#bbk|#fixup]/func, objSz/ea, funcSz/ea)
+  message LayoutInfo {
+    optional uint32 bb_size = 1;          // UPDATE AT LINKTIME WITH OBJ ALIGNMENTs
+                                          // All alignments between fn/bbl are included here
+    optional uint32 type = 2;             // Represents the end of [OBJ|FUN|BBL]
+    optional uint32 num_fixups = 3;
+    optional bool bb_fallthrough = 4;
+    optional string section_name = 5;     // section identifier for c++ mutiple sections
+    optional uint32 offset = 6; // update at linking when combining sections
+    optional uint32 padding_size = 7;
+    optional uint32 assemble_type = 8 [default = 0]; // assemble type: 0(normal basic block type), 1(contains inline assemble code)
+						     // 2(handwritten assemble code)
+  }
+
+  // Fixup info in ELF from LLVM
+  message FixupInfo {
+    message FixupTuple {
+      required uint32 offset = 1;         // UPDATE AT LINKTIME WHEN COMBINING SECTIONS
+      required uint32 deref_sz = 2;
+      required bool   is_rela = 3;
+      optional uint32 type = 4;           // c2c, c2d, d2c, d2d = (0-3)
+      optional string section_name = 5;   // section identifier for c++ mutiple sections
+                                          // fixup has a jump table (.rodata) for pic/pie use
+      optional uint32 num_jt_entries = 6; // number of the jump table entries
+      optional uint32 jt_entry_sz = 7;    // size of each jump table entry in byte
+    }
+    repeated FixupTuple text = 1;
+    repeated FixupTuple rodata = 2;
+    repeated FixupTuple data = 3;
+    repeated FixupTuple datarel = 4;
+    repeated FixupTuple initarray = 5;
+  }
+  
+  // Source info [generalSource(=0) | hasInlineAssembly(=1) | standaloneAssembly(=2)]
+  message SourceInfo {
+    repeated uint32 src_type = 1;         // the src_type placeholder for linker
+  }
+
+  optional BinaryInfo bin = 1;
+  repeated LayoutInfo layout = 2;
+  repeated FixupInfo fixup = 3;
+  optional SourceInfo source = 4;
+}

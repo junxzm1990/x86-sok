@@ -7,7 +7,7 @@
 #define BBINFOHANDLE_H
 
 // debug macro
-// #define BBINFO_DEBUG_MSG
+//#define BBINFO_DEBUG_MSG
 
 #include "as.h"
 #include "shuffleInfo.pb-c.h"
@@ -37,7 +37,7 @@ typedef struct sec_last_bb{
 struct basic_block{
   uint32_t ID; // basic block id, every basic block has unique id in an object
   uint8_t type; // basic block type: basic block or function boundary.
- 		// 0 represents basic block. 1 represents function end. 2 represents object end
+ 		// 0 represents basic block. 1 represents function start. 2 represents object end
   uint32_t offset; // offset from the section
   int size; // basic block size, include alignment size
   uint32_t alignment; // basic block alignment size

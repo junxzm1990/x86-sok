@@ -209,7 +209,7 @@ main(int argc, char** argv)
   // option to control this.  FIXME.
   if (parameters->options().relocatable()){
     command_line.script_options().version_script_info()->clear();
-    gold_info("[CCR-error]incremental linking with -r is not supported");
+    //gold_info("[CCR-error]incremental linking with -r is not supported");
   }
 
   // The work queue.

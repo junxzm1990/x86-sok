@@ -70,7 +70,7 @@
 
 #define CCR_READ_FROM_SECTION
 // #define CCR_READ_FROM_FILE
-#define CCR_MSG_DETAILS
+// #define CCR_MSG_DETAILS
 
 // binpang, set unordered_map bucket size
 #define MIN_BUCKET_SIZE 10000
@@ -2902,7 +2902,7 @@ Layout::reset_relax_output()
       // Add the 'OBJ' type of the basic block in the end of section
       for (cur_iter = section_map.begin(); cur_iter != section_map.end(); cur_iter++){
 	uint32_t index = cur_iter->second.index;
-	gold_info("[bbinfo]: DEBUG: update the OBJ type in section %s", cur_iter->first.c_str());
+	//gold_info("[bbinfo]: DEBUG: update the OBJ type in section %s", cur_iter->first.c_str());
 	if (NORMAL_BBL == gsi.layout(index).type()){
 	  gsi.mutable_layout(index)->set_type(OBJ_BBL);
 	} else if (FUNC_BBL == gsi.layout(index).type()){

@@ -46,9 +46,6 @@ const char* symbol_blacklist[] = {
   ".LASF"
 };
 
-// local variable
-bbinfo_mbb* _mbbs_tmp_prev = NULL;
-
 // global variable
 bbinfo_sec_last_bb* sec_last_bb_head = NULL;
 bbinfo_fixup* fixups_list_head; // fixup list
@@ -791,13 +788,11 @@ void handwritten_funcb_bbinfo_handler(){
     return;
   // if the last basic block is not used, we don't need initialize another basic block
   if (mbbs_list_tail && mbbs_list_tail->is_begin)
-   return;
+    return;
  
   // we type the last basic block type as the end of the function
-  if (mbbs_list_tail){
-    //mbbs_list_tail->type = 1;
-    _mbbs_tmp_prev = mbbs_list_tail;
-  }
+  if (mbbs_list_tail)
+    mbbs_list_tail->type = 1;
   
   
     bbinfo_mbb *cur_mbb = init_basic_block();
@@ -818,16 +813,6 @@ void handwritten_funce_bbinfo_handler(){
     return;
   if (!mbbs_list_tail)
      as_fatal("[bbinfo]: funce_bbinfo_handler. the mbbs_list_tail is null");
-
-  if (mbbs_list_tail->is_begin && mbbs_list_tail->size == 0){
-    if (_mbbs_tmp_prev){
-      _mbbs_tmp_prev->type = 0;
-      free(mbbs_list_tail);
-      mbbs_list_tail = _mbbs_tmp_prev;
-      _mbbs_tmp_prev = NULL;
-    }
-    return;
-  }
   mbbs_list_tail->type = 1;
 }
 

@@ -1086,7 +1086,7 @@ class Layout
     tmp_iter = relobj_map.find(obj);
     if (tmp_iter == relobj_map.end()){
       // debug
-      gold_info("[bbinfo]: adding the object %s to the relobj list!", obj->name().c_str());
+      //gold_info("[bbinfo]: adding the object %s to the relobj list!", obj->name().c_str());
       relobj_map.insert(std::pair<Relobj*, bool>(obj, false));
     }
   }
