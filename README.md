@@ -119,7 +119,26 @@ root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $
 
 ### Compile binary with our toolchain
 
-TODO.
+Here is an example that explains how to use our toolchain to compile binary:
+
+```console
+root@5e8606df7f20:/gt_x86# cd test
+
+root@5e8606df7f20:/gt_x86/test# source ../gcc64.rc
+
+root@5e8606df7f20:/gt_x86/test# export CFLAGS="-O0 $CFLAGS"
+
+root@5e8606df7f20:/gt_x86/test# $CC $CFLAGS -o test_switch test_switch.c
+[bbinfo]: DEBUG, the target binary format is: size 64, is big endian 0
+Update shuffleInfo Done!
+Successfully wrote the ShuffleInfo to the .rand section!
+
+# check the .rand section in the executable
+root@5e8606df7f20:/gt_x86/test# readelf -S test_switch | grep -A1 rand
+ [35] .rand             PROGBITS         0000000000000000  000034ec
+       000000000000025b  0000000000000000           0     0     1
+```
+
 
 ## Testsuite
 
