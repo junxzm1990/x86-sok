@@ -95,7 +95,7 @@ $ docker run --rm -it x86_gt:latest /bin/bash
 
 # configure CC, CXX, CFLAGS, CXXFLAGS, LDFLAGS inside container
 root@fc44258775ac:/gt_x86# source ./gcc64.rc
-root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CLFAGS" && export CXXFLAGS="-O2 $CXXFLAGS"
+root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $CXXFLAGS"
 ```
 
 Or pull the image from Docker Hub:
@@ -113,7 +113,7 @@ $ docker run --rm -it bin2415/x86_gt:0.1 /bin/bash
 
 # configure CC, CXX, CFLAGS, CXXFLAGS, LDFLAGS inside container
 root@fc44258775ac:/gt_x86# source ./gcc64.rc
-root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CLFAGS" && export CXXFLAGS="-O2 $CXXFLAGS"
+root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $CXXFLAGS"
 ```
 
 
