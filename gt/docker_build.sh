@@ -24,11 +24,6 @@ fi
 
 cd $PWD_PATH
 
-BUILD_ESSENTIAL="sudo apt-get -y update && \
-	sudo apt-get -y install build-essential bison zlib1g-dev libtool cmake linux-libc-dev-i386-cross gcc-multilib g++-multilib libc6-dev-i386"
-echo $BUILD_ESSENTIAL
-eval $BUILD_ESSENTIAL
-
 # build protobuf
 echo
 echo -e "${BLUE}===================== build protobuf ======================${NC}"
@@ -36,7 +31,6 @@ echo
 
 if [ ! -f ${PWD_PATH}/succeed/protobuf ]; then
     cd $PWD_PATH
-    eval "sudo apt-get -y install autoconf automake libtool curl make g++ unzip pkg-config"
     eval "git clone https://github.com/protocolbuffers/protobuf.git"
     eval "cd protobuf && git submodule update --init --recursive && ./autogen.sh"
     eval "./configure && make -j$(nproc) &&  sudo make install && sudo ldconfig"
@@ -289,11 +283,6 @@ echo
 echo -e "${GREEN}[*] build glibc succeed!"
 
 cd $PWD_PATH
-
-# build python dependency
-sudo apt-get -y install python-pip
-cd ${SRC_PATH}
-sudo pip install -r requirements.txt
 
 echo
 echo -e "${GREEN}[*] build succeed!"
