@@ -4,6 +4,17 @@
 
 # x86-sok
 
+Overview of the source code:
+
+```console
+.
+├── ccr 	# source code of ccr/randomizer
+├── gt	        # modified gcc/clang toolchain
+├── README.md
+└── testsuite   # coreutils and findutils that compiled by gcc/clang toolchain
+
+```
+
 ## The Framework of compilers
 
 We modified compilers(gcc/clang) to collect the information of basic blocks and reconstruct the information of binary code.
@@ -142,7 +153,7 @@ root@5e8606df7f20:/gt_x86/test# readelf -S test_switch | grep -A1 rand
 
 ## Testsuite
 
-We built the testsuite by using our toolchain, it has more than 4000 binaries, including Linux/Windows 32/64 bits). The subset of testsuite is in `testsuite` folder. The whole testsuite is in [link of google drive](https://drive.google.com/file/d/1Jd1O9eVIeFasOcuQjLcIxFswzKXuK6A8/view?usp=sharing).
+We built the testsuite by using our toolchain. It has more than 4000 binaries, including Linux/Windows 32/64 bits. The subset of testsuite is in `testsuite` folder. The whole testsuite is in [link of google drive](https://drive.google.com/file/d/1Jd1O9eVIeFasOcuQjLcIxFswzKXuK6A8/view?usp=sharing).
 
 ## Exatract Ground truth from binary
 
