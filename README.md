@@ -12,6 +12,13 @@ Overview of the source code:
 ├── gt	        # modified gcc/clang toolchain
 ├── README.md
 └── testsuite   # coreutils and findutils that compiled by gcc/clang toolchain
+.
+|-- ccr 		# source code of ccr/randomizer
+|-- extract_gt		# scripts that extract ground truth from binary
+|-- gt			# modified gcc/clang toolchain
+|-- protobuf_def	# protobuf definitions that defines disassembly information and x-ref infomation
+|-- README.md
+`-- testsuite		# coreutils and findutils that compiled by gcc/clang toolchain
 
 ```
 
@@ -156,6 +163,42 @@ root@5e8606df7f20:/gt_x86/test# readelf -S test_switch | grep -A1 rand
 We built the testsuite by using our toolchain. It has more than 4000 binaries, including Linux/Windows 32/64 bits. The subset of testsuite is in `testsuite` folder. The whole testsuite is in [link of google drive](https://drive.google.com/file/d/1Jd1O9eVIeFasOcuQjLcIxFswzKXuK6A8/view?usp=sharing).
 
 ## Exatract Ground truth from binary
+
+### Linux
+
+We use the example of `test_switch` to show how to extract ground truth.
+
+```
+# copy the gt info from binary
+root@5e8606df7f20:/gt_x86/test#  objcopy --dump-section .rand=test_switch.gt.gz test_switch && gzip -d test_switch.gt.gz
+
+# there has test_switch.gt in current directory
+root@5e8606df7f20:/gt_x86/test# ls
+test_switch  test_switch.c  test_switch.gt
+
+# extract disassembly result, and the result is saved in /tmp/gtBlock_test_switch.pb
+root@5e8606df7f20:/gt_x86/test# python3 ../../extract_gt/extractBB.py -b test_switch -m test_switch.gt -o /tmp/gtBlock_test_switch.pb
+...
+...
+INFO:=======================================================
+INFO:[Summary]: padding cnt is 9
+INFO:[Summary]: handcoded bytes is 0
+INFO:[Summary]: handcoded number is 0
+INFO:[Summary]: Jump tables is 1
+INFO:[Summary]: Tail indirect call is 2
+INFO:[Summary]: overlapping instructions is 0
+INFO:[Summary]: Non-returning function is 2
+INFO:[Summary]: Multi-entry function is 0
+INFO:[Summary]: overlapping functions is 0
+INFO:[Summary]: tail call count is is 1
+
+# extract x-ref result, the result is saved in /tmp/gtRef_test_switch.pb
+root@5e8606df7f20:/gt_x86/test# python3 ../../extract_gt/extractXref.py -b test_switch -m test_switch.gt -o /tmp/gtRef_test_switch.pb
+```
+
+Note that the definition of disassembly and x-ref result is in `protobuf_def/blocks.proto` and `protobuf_def/refInf.proto`.
+
+### Windows
 
 TODO.
 
