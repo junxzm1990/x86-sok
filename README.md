@@ -8,15 +8,11 @@ Overview of the source code:
 
 ```console
 .
-├── ccr 	# source code of ccr/randomizer
-├── gt	        # modified gcc/clang toolchain
-├── README.md
-└── testsuite   # coreutils and findutils that compiled by gcc/clang toolchain
-.
-|-- ccr 		# source code of ccr/randomizer
+|-- ccr			# source code of ccr/randomizer
+|-- compare		# scripts that compare the result between gt and disassembler
 |-- extract_gt		# scripts that extract ground truth from binary
 |-- gt			# modified gcc/clang toolchain
-|-- protobuf_def	# protobuf definitions that defines disassembly information and x-ref infomation
+|-- protobuf_def	# protobuf definitions that defines disassembly information and x-ref information
 |-- README.md
 `-- testsuite		# coreutils and findutils that compiled by gcc/clang toolchain
 
@@ -168,7 +164,7 @@ We built the testsuite by using our toolchain. It has more than 4000 binaries, i
 
 We use the example of `test_switch` to show how to extract ground truth.
 
-```
+```console
 # copy the gt info from binary
 root@5e8606df7f20:/gt_x86/test#  objcopy --dump-section .rand=test_switch.gt.gz test_switch && gzip -d test_switch.gt.gz
 
