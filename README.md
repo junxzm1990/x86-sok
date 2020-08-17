@@ -196,8 +196,17 @@ Note that the definition of disassembly and x-ref result is in `protobuf_def/blo
 
 ### Windows
 
-TODO.
+We prepare an example in `extract_gt/pemap/test`to explain how to extract ground truth.
 
+```console
+
+# extract fixup info, this step must be completed in windows, as we need to use dumpbin tool
+windows@windows:/extract_gt/pemap# python3 dumpfixup.py -p ./test/7zDec.pdb -b ./test/7zDec.exe -o ./test/gtRef_7zDec.pb
+
+# extract disassembly info. Note that we need the fixup info
+windows@windows:/extract_gt/pemap# make
+windows@windows:/extract_gt/pemap# ./PEMap -iwRFE -P ./test/7zDec.pdb -r ./test/gtRef_7zDec.pb -e ./test/7zDec.exe -o ./test/gtBlock_7zDec.pb
+```
 
 ## Compare the result
 

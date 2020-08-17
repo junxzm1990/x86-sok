@@ -1,0 +1,18 @@
+aes-586.asm 577 967 1761 2147 3207 3209
+aesni-x86.asm 3191 3200
+vpaes-x86.asm 9 64
+bf-586.asm 886 896
+x86-gf2m.asm 339 343
+x86-mont.asm 473 477
+cmll-x86.asm 1561 2078 2357 2359
+chacha-x86.asm 518 533
+des-586.asm 1687 1828
+ecp_nistz256-x86.asm 13 2392
+ghash-x86.asm 1210 1257
+poly1305-x86.asm 1891 1901
+rc4-586.asm 364 372
+sha1-586.asm 3957 3968
+sha256-586.asm 258 267  
+wp-mmx.asm 588 1111 
+e_padlock-x86.asm 1005 1008
+inffas32.asm 79 146
