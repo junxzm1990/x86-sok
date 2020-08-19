@@ -848,7 +848,7 @@ def addBBInGaps(pbModule):
             addedInst.va = inst.address
             addedInst.size = inst.size
         for suc in blk.successors:
-            child = addedBB.child.add()
+            child = bb.child.add()
             child.va = suc
 
 
@@ -1053,6 +1053,8 @@ def handleGapsFallThrough(bblist, binary):
             logging.info("Find the gap(0x%x - 0x%x) behind basic block 0x%x, size is %d, padding is %d" 
                     % (gap_start, gap_end, bb.VA, bb.size, bb.padding))
             ins_list = disassembleBB(blk, binary, ELF_CLASS)
+            if len(ins_list) == 0:
+                continue
 
             last_inst = ins_list[-1]
             case_one = False

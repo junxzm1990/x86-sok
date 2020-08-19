@@ -194,6 +194,13 @@ root@5e8606df7f20:/gt_x86/test# python3 ../../extract_gt/extractXref.py -b test_
 
 Note that the definition of disassembly and x-ref result is in `protobuf_def/blocks.proto` and `protobuf_def/refInf.proto`.
 
+We provide script to extract ground truth in batch. It searchs all the binaries in a directory.
+
+```console
+ubuntu@ubuntu:/x86-sok/extract_gt: bash run_extract_linux.sh -d <directory> -s ./extractBB.py -p gtBlock
+ubuntu@ubuntu:/x86-sok/extract_gt: bash run_extract_linux.sh -d <directory> -s ./extractXref.py -p gtRef
+```
+
 ### Windows
 
 We prepare an example in `extract_gt/pemap/test`to explain how to extract ground truth.
@@ -210,4 +217,10 @@ windows@windows:/extract_gt/pemap# ./PEMap -iwRFE -P ./test/7zDec.pdb -r ./test/
 
 ## Compare the result
 
-TODO.
+We can use scripts in `compare` folder to compare results between ground truth and comapred tools.
+
+For example, if we want to compare instructions, we can use `compareInsts.py`:
+
+```console
+ubuntu@ubuntu:/x86_sok/compare# python3 compareInsts.py -b <binary path> -g <ground truth> -c <compared>
+```
