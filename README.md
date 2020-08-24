@@ -11,6 +11,7 @@ Overview of the source code:
 |-- ccr			# source code of ccr/randomizer
 |-- compare		# scripts that compare the result between gt and disassembler
 |-- extract_gt		# scripts that extract ground truth from binary
+|-- disassemblers       # scripts that we use to extract disassemblers' result
 |-- gt			# modified gcc/clang toolchain
 |-- protobuf_def	# protobuf definitions that defines disassembly information and x-ref information
 |-- README.md
@@ -223,4 +224,12 @@ For example, if we want to compare instructions, we can use `compareInsts.py`:
 
 ```console
 ubuntu@ubuntu:/x86_sok/compare# python3 compareInsts.py -b <binary path> -g <ground truth> -c <compared>
+```
+
+Note that before comparring the non-return, we need to extend the non-return lists based on ground truth:
+```console
+# extend the non-rets
+ubuntu@ubuntu:/x86_sok/compare# python3 findNonRets.py -b <binary path> -g <ground truth> -o <ground truth with extended non-rets>
+# compare
+ubuntu@ubuntu:/x86_sok/compare# python3 compareNonRet.py -b <binary path> -g <ground turht with extended non-rets> -c <compared>
 ```
