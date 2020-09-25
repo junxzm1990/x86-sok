@@ -238,7 +238,7 @@ ubuntu@ubuntu:/x86_sok/compare# python3 compareNonRet.py -b <binary path> -g <gr
 
 If your research find one or several components of this work useful, please cite the following paper:
 
-@INPROCEEDINGS {sok-x86,
+@INPROCEEDINGS {sok-x86,\
 author = {Chengbin Pang and Ruotong Yu and Yaohui Chen and Eric Koskinen and Georgios Portokalidis and Bing Mao and Jun Xu},\
 booktitle = {42nd IEEE Symposium on Security and Privacy (SP)},\
 title = {SoK: All You Ever Wanted to Know About x86/x64 Binary Disassembly But Were Afraid to Ask},\
