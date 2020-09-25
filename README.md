@@ -240,8 +240,8 @@ If your research find one or several components of this work useful, please cite
 
 @INPROCEEDINGS {sok-x86,\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;author = {Chengbin Pang and Ruotong Yu and Yaohui Chen and Eric Koskinen and Georgios Portokalidis and Bing Mao and Jun Xu},\
-    booktitle = {42nd IEEE Symposium on Security and Privacy (SP)},\
->> title = {SoK: All You Ever Wanted to Know About x86/x64 Binary Disassembly But Were Afraid to Ask},\
->> year = {2021},\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;booktitle = {42nd IEEE Symposium on Security and Privacy (SP)},\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;title = {SoK: All You Ever Wanted to Know About x86/x64 Binary Disassembly But Were Afraid to Ask},\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year = {2021},\
 }
 
