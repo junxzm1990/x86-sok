@@ -1,7 +1,4 @@
 
-## We are releasing our code and data step by step. Stay tuned!
-
-
 # x86-sok
 
 Overview of the source code:
