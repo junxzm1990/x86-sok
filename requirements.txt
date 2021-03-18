@@ -1,0 +1,5 @@
+protobuf
+capstone
+pyelftools
+logging
+ctypes

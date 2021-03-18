@@ -26,17 +26,18 @@ do
 	esac
 done
 
-if [ ! -d $DIRECTORY ]; then
+if [[ ! -d $DIRECTORY ]]; then
 	echo "Please input directory with (-d)!"
 	exit -1
 fi
 
-if [ ! -f $SCRIPT ]; then
+if [[ ! -f $SCRIPT ]]; then
 	echo "Please input extract script with (-s)!"
 	exit -1
 fi
 
-for f in `find -executable -type f`; do
+
+for f in `find $DIRECTORY -executable -type f`; do
 	echo "===========current file is $f==================="
 	
 	gt_gz=${f}.gt.gz
