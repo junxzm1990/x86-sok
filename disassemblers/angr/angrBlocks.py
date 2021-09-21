@@ -24,7 +24,7 @@ def dumpBlocks(binary, output, output_sta):
     p = angr.Project(binary, load_options={'auto_load_libs': False})
     cfg = p.analyses.CFGFast(normalize=True, detect_tail_calls = True)
     # output func matching counts
-    outputFuncMatching(cfg, output_sta)
+    # outputFuncMatching(cfg, output_sta)
 
     module = blocks_pb2.module()
 
