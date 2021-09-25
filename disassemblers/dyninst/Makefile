@@ -6,10 +6,10 @@ LDFLAGS= -L/usr/local/lib -ldyninstAPI -lparseAPI -linstructionAPI -lsymtabAPI -
 all: dyninstBlocks 
 
 blocks.pb.cc: ../../protobuf_def/blocks.proto
-        protoc --cpp_out=. --proto_path=../../protobuf_def/ blocks.proto
+	protoc --cpp_out=. --proto_path=../../protobuf_def/ blocks.proto
 
 dyninstBlocks: dyninstBB.cpp blocks.pb.cc
 	c++ $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 	
 clean:
-	rm dyninstBlocks blocks.pb.cc blocks.pb.h
+	rm -f dyninstBlocks blocks.pb.cc blocks.pb.h
