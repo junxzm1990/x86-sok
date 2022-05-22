@@ -16,6 +16,7 @@
 #define LLVM_MC_MCINSTBUILDER_H
 
 #include "llvm/MC/MCInst.h"
+#include <string> // ztt add
 
 namespace llvm {
 
@@ -63,6 +64,25 @@ public:
     Inst.addOperand(Op);
     return *this;
   }
+
+  /// \brief ztt add Set Parent
+  MCInstBuilder &setParent(std::string ID) {
+    Inst.setParent(ID);
+    return *this;
+  }
+
+  /// \brief ztt add Set Jump Table
+  MCInstBuilder &setJumpTable(int sz) {
+    Inst.setJumpTable(sz);
+    return *this;
+  }
+
+  /// \brief ztt add Set Parent
+  MCInstBuilder &setTableSymName(std::string SymName) {
+    Inst.setTableSymName(SymName);
+    return *this;
+  }
+
 
   operator MCInst&() {
     return Inst;

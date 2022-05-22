@@ -1020,27 +1020,50 @@ Sized_relobj_file<size, big_endian>::relocate_section_range(
       relinfo.rr = rr;
 
       std::string obj_name = relinfo.object->name();
-      if (!parameters->options().relocatable())
+  if (!parameters->options().relocatable())
 	{
+    //printf("T:section name is %s\n",relinfo.object->section_name(relinfo.data_shndx).c_str());
 	  target->relocate_section(&relinfo, sh_type, prelocs, reloc_count, os,
 				   output_offset == invalid_address,
 				   view, address, view_size, reloc_map);
 	  if (parameters->options().emit_relocs())
-	    target->relocate_relocs(&relinfo, sh_type, prelocs, reloc_count,
-				    os, output_offset,
-				    view, address, view_size,
-				    (*pviews)[i].view,
-				    (*pviews)[i].view_size);
+    {
+        bool find_arm_idx = true;
+        char T_arm_idx[] = ".ARM.exidx";
+
+        for(int T = 0;T < 10 && T < relinfo.object->section_name(relinfo.data_shndx).length();T++)
+          if(T_arm_idx[T] != relinfo.object->section_name(relinfo.data_shndx)[T])
+          {
+            //printf("%d: %d %d\n",T,T_arm_idx[T],object->section_name(relinfo->data_shndx)[T]);
+            find_arm_idx = false;
+            break;
+          }
+        find_arm_idx = false;
+        if(!find_arm_idx)
+        {
+          //printf("section name is %s\n",relinfo.object->section_name(relinfo.data_shndx).c_str());
+          target->relocate_relocs(&relinfo, sh_type, prelocs, reloc_count,
+                os, output_offset,//ztt
+                view, address, view_size,
+                (*pviews)[i].view,
+                (*pviews)[i].view_size);
+        }
+        else
+          printf("Find %s\n",relinfo.object->section_name(relinfo.data_shndx).c_str());
+    }
 	  if (parameters->incremental())
 	    this->incremental_relocs_write(&relinfo, sh_type, prelocs,
 					   reloc_count, os, output_offset, of);
 	}
       else
+      {
+        //printf("T:3section name is %s\n",relinfo.object->section_name(relinfo.data_shndx).c_str());
 	target->relocate_relocs(&relinfo, sh_type, prelocs, reloc_count,
 				os, output_offset,
 				view, address, view_size,
 				(*pviews)[i].view,
 				(*pviews)[i].view_size);
+        }
     }
 }
 

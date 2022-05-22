@@ -159,6 +159,8 @@ symbol_create (const char *name, /* It is copied, the caller can destroy/modify.
 #ifdef tc_symbol_new_hook
   tc_symbol_new_hook (symbolP);
 #endif
+  symbolP->jmp_table.table_size = 0;
+  symbolP->jmp_table.entry_size = 0;
 
   return symbolP;
 }
@@ -205,6 +207,8 @@ local_symbol_make (const char *name, segT section, valueT val, fragS *frag)
   ret->lsy_section = section;
   local_symbol_set_frag (ret, frag);
   ret->lsy_value = val;
+  ret->jmp_table.table_size = 0;
+  ret->jmp_table.entry_size = 0;
 
   hash_jam (local_hash, name_copy, (void *) ret);
 
@@ -230,6 +234,9 @@ local_symbol_convert (struct local_symbol *locsym)
 
   if (local_symbol_resolved_p (locsym))
     ret->sy_flags.sy_resolved = 1;
+
+  ret->jmp_table.table_size = locsym->jmp_table.table_size;
+  ret->jmp_table.entry_size = locsym->jmp_table.entry_size;
 
   /* Local symbols are always either defined or used.  */
   ret->sy_flags.sy_used = 1;
@@ -570,6 +577,10 @@ symbol_clone (symbolS *orgsymP, int replace)
 
   newsymP = (symbolS *) obstack_alloc (&notes, sizeof (*newsymP));
   *newsymP = *orgsymP;
+  
+  newsymP->jmp_table.table_size = orgsymP->jmp_table.table_size;
+  newsymP->jmp_table.entry_size = orgsymP->jmp_table.entry_size;
+
   bsymnew = bfd_make_empty_symbol (bfd_asymbol_bfd (bsymorg));
   if (bsymnew == NULL)
     as_fatal ("bfd_make_empty_symbol: %s", bfd_errmsg (bfd_get_error ()));

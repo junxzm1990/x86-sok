@@ -264,7 +264,7 @@ private:
                              raw_ostream &) override;
 
   const MCExpr *lowerConstantForGV(const Constant *CV, bool ProcessingGeneric);
-  void printMCExpr(const MCExpr &Expr, raw_ostream &OS);
+  const MCExpr *printMCExpr(const MCExpr &Expr, raw_ostream &OS);
 
 protected:
   bool doInitialization(Module &M) override;

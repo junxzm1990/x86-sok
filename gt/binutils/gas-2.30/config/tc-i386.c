@@ -4623,10 +4623,8 @@ optimize_disp (void)
 	    i.types[op].bitfield.disp64 = 0;
 	    // binpang, add
 	    // update the basic block's fix number
-#if defined(__i386__) || defined(__x86_64__)
 	    if (mbbs_list_tail)
 	      mbbs_list_tail->num_fixs++;
-#endif
 	  }
  	else
 	  /* We only support 64bit displacement on constants.  */
@@ -7102,10 +7100,8 @@ output_jump (void)
 		      i.op[0].disps, 1, reloc (size, 1, 1, i.reloc[0]));
 
   // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
   if (mbbs_list_tail)
     mbbs_list_tail->num_fixs++;
-#endif
 
   /* All jumps handled here are signed, but don't use a signed limit
      check for 32 and 16 bit jumps as we want to allow wrap around at
@@ -7173,10 +7169,8 @@ output_interseg_jump (void)
     fix_new_exp (frag_now, p - frag_now->fr_literal, size,
 		 i.op[1].imms, 0, reloc (size, 0, 0, i.reloc[1]));
     // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
     if (mbbs_list_tail)
       mbbs_list_tail->num_fixs++;
-#endif
   }
   if (i.op[0].imms->X_op != O_constant)
     as_bad (_("can't handle non absolute segment in `%s'"),
@@ -7202,7 +7196,6 @@ output_insn (void)
   insn_start_off = frag_now_fix ();
 
 
-#if defined(__i386__) || defined(__x86_64)
   // update the basic block offset in current/last fragment
   insn_start_frag->last_bb = mbbs_list_tail;
   if (mbbs_list_tail && mbbs_list_tail->is_begin){
@@ -7246,7 +7239,6 @@ output_insn (void)
 	
 	bbinfo_last_inst_offset = insn_start_off;
   }
-#endif
 
   /* Output jumps.  */
   if (i.tm.opcode_modifier.jump)
@@ -7281,16 +7273,15 @@ output_insn (void)
 // binpang add
 // get the last instruction size
 // the last basic block's size in fragment may change after fragment relocation 
-#if defined(__i386__) || defined(__x86_64__)
   offsetT insn_size = 0;
   if (insn_start_frag == frag_now){
-    insn_size = frag_now_fix() - insn_start_off; 
+    insn_size = frag_now_fix() - insn_start_off;
   }else{
     // last basic block in fragment may change in the frag relocation
     // update its size after fragment relocation
     insn_size = insn_start_frag->fr_fix - insn_start_off;
     fragS *frag_tmp;
-    for (frag_tmp = insn_start_frag->fr_next; 
+    for (frag_tmp = insn_start_frag->fr_next;
 	frag_tmp && frag_tmp != frag_now; frag_tmp = frag_tmp->fr_next){
       insn_size += frag_tmp->fr_fix;
       frag_tmp->last_bb = mbbs_list_tail;
@@ -7309,7 +7300,6 @@ output_insn (void)
   if (bbinfo_handwritten_file){
 	  bbinfo_last_inst_size = (unsigned int)insn_size;
   }
-#endif
           return;
         }
 
@@ -7475,7 +7465,6 @@ check_prefix:
 // binpang add
 // get the last instruction size
 // the last basic block's size in fragment may change after fragment relocation 
-#if defined(__i386__) || defined(__x86_64__)
   offsetT insn_size = 0;
   if (insn_start_frag == frag_now){
     insn_size = frag_now_fix() - insn_start_off; 
@@ -7503,7 +7492,6 @@ check_prefix:
 	  bbinfo_last_inst_size = (unsigned int)insn_size;
   }
   
-#endif
   
   
 }
@@ -7638,11 +7626,9 @@ output_disp (fragS *insn_start_frag, offsetT insn_start_off)
 				  reloc_type);
 	      // binpang, add
 	      // update the basic block's fix number
-#if defined(__i386__) || defined(__x86_64__)
 	     if (mbbs_list_tail){
 	       mbbs_list_tail->num_fixs++;
 	     } 
-#endif
 
 	      /* Check for "call/jmp *mem", "mov mem, %reg",
 		 "test %reg, mem" and "binop mem, %reg" where binop
@@ -7803,10 +7789,8 @@ output_imm (fragS *insn_start_frag, offsetT insn_start_off)
 			   i.op[n].imms, 0, reloc_type);
 	      // binpang, add
 	      // update the basic blocks fix number
-#if defined(__i386__) || defined(__x86_64__)
 	      if (mbbs_list_tail)
 		mbbs_list_tail->num_fixs++;
-#endif
 
 	    }
 	}
@@ -9481,13 +9465,11 @@ md_estimate_size_before_relax (fragS *fragP, segT segment)
 		   reloc_type);
 
 	  // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
 	  if (fragP->last_bb)
 	    fragP->last_bb->num_fixs++;
 
 	  // update the added fix size
 	  fragP->last_bb_added_fix_size += size;
-#endif
 	  break;
 
 	case COND_JUMP86:
@@ -9509,13 +9491,11 @@ md_estimate_size_before_relax (fragS *fragP, segT segment)
 		       reloc_type);
 
 	  // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
 	  if (fragP->last_bb)
 	    fragP->last_bb->num_fixs++;
 
 	  // update the added fix size
 	  fragP->last_bb_added_fix_size += 2 + 2;
-#endif
 	      break;
 	    }
 	  /* Fall through.  */
@@ -9532,15 +9512,13 @@ md_estimate_size_before_relax (fragS *fragP, segT segment)
 			      BFD_RELOC_8_PCREL);
 	      fixP->fx_signed = 1;
 	  // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
 	  if (fragP->last_bb)
 	    fragP->last_bb->num_fixs++;
 
 	  // update the added fix size
 	  fragP->last_bb_added_fix_size += 1;
-#endif
 	      break;
-	    }
+	}
 
 	  /* This changes the byte-displacement jump 0x7N
 	     to the (d)word-displacement jump 0x0f,0x8N.  */
@@ -9553,13 +9531,11 @@ md_estimate_size_before_relax (fragS *fragP, segT segment)
 		   fragP->fr_offset, 1,
 		   reloc_type);
 	  // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
 	  if (fragP->last_bb)
 	    fragP->last_bb->num_fixs++;
 
 	  // update the added fix size
 	  fragP->last_bb_added_fix_size += 1 + size;
-#endif
 	  break;
 
 	default:
@@ -9695,7 +9671,6 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec,
 		      (valueT) (displacement_from_opcode_start - extension),
 		      DISP_SIZE_FROM_RELAX_STATE (fragP->fr_subtype));
   
-#if defined(__i386__) || defined(__x86_64__)
   char is_new_sec = bbinfo_is_collect_sec(sec);
   if (is_new_sec)
   {
@@ -9710,7 +9685,6 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec,
     if (fragP->last_bb)
       fragP->last_bb->num_fixs++;
   }
-#endif
 
   fragP->fr_fix += extension;
 }

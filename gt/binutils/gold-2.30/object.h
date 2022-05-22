@@ -1430,13 +1430,14 @@ class Relobj : public Object
             }
             
         // Hack: if we do not know obj_id, then use the 'visited' flag
-        uint64_t 
+        uint64_t
         yarp_object_id(std::string text_name)
             {
                 uint64_t obj_id;
                 std::string sec_name;
                 bool visited;
-                for (std::list<std::tuple<uint64_t, std::string, bool>>::iterator it = this->yarp_obj_id_map.begin(); 
+                //gold_info("T:checking now!");
+                for (std::list<std::tuple<uint64_t, std::string, bool>>::iterator it = this->yarp_obj_id_map.begin();
                         it!=this->yarp_obj_id_map.end(); ++it) {
                   std::tie(obj_id, sec_name, visited) = *it;
                   //gold_info("checking %s", sec_name.c_str());
@@ -1448,6 +1449,9 @@ class Relobj : public Object
 
                 // text_name should be able to be found at all times, something went wrong otherwise
                 gold_info("[CCR-ERROR] Was not able to find the offset@%s for %s", text_name.c_str(), this->name().c_str());
+                //return 0;
+
+                return -1;
                 assert(0);
                 gold_unreachable();
             }
@@ -2091,12 +2095,12 @@ class Sized_relobj : public Relobj
   static const Address invalid_address = static_cast<Address>(0) - 1;
 
   Sized_relobj(const std::string& name, Input_file* input_file)
-    : Relobj(name, input_file), local_got_offsets_(), section_offsets_()
+    : Relobj(name, input_file), local_got_offsets_(), section_offsets_(), section_offsets_saved_()
   { }
 
   Sized_relobj(const std::string& name, Input_file* input_file,
 		    off_t offset)
-    : Relobj(name, input_file, offset), local_got_offsets_(), section_offsets_()
+    : Relobj(name, input_file, offset), local_got_offsets_(), section_offsets_(), section_offsets_saved_()
   { }
 
   ~Sized_relobj()
@@ -2139,6 +2143,11 @@ class Sized_relobj : public Relobj
   section_offsets()
   { return this->section_offsets_; }
 
+  std::vector<Address>&
+  section_offsets_saved() {
+    return this->section_offsets_saved_;
+  }
+
  protected:
   typedef Relobj::Output_sections Output_sections;
 
@@ -2175,6 +2184,9 @@ class Sized_relobj : public Relobj
       (off == static_cast<uint64_t>(-1)
        ? invalid_address
        : convert_types<Address, uint64_t>(off));
+    if (off != static_cast<uint64_t>(-1)) {
+      this->section_offsets_saved_[shndx] = convert_types<Address, uint64_t>(off);
+    }
   }
 
   // Return whether the local symbol SYMNDX plus ADDEND has a GOT offset
@@ -2249,6 +2261,9 @@ class Sized_relobj : public Relobj
   // output section.  This is INVALID_ADDRESS if the input section requires a
   // special mapping.
   std::vector<Address> section_offsets_;
+
+  // binpang. add. do not reset to 0xffffffff
+  std::vector<Address> section_offsets_saved_;
 };
 
 // A regular object file.  This is size and endian specific.

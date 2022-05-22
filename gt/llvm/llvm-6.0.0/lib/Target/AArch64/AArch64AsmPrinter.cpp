@@ -462,6 +462,12 @@ void AArch64AsmPrinter::LowerSTACKMAP(MCStreamer &OutStreamer, StackMaps &SM,
 
   // Scan ahead to trim the shadow.
   const MachineBasicBlock &MBB = *MI.getParent();
+
+  // binpang. add.
+  unsigned MBBID = MBB.getNumber();
+  unsigned MFID = MBB.getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+
   MachineBasicBlock::const_iterator MII(MI);
   ++MII;
   while (NumNOPBytes > 0) {
@@ -476,7 +482,7 @@ void AArch64AsmPrinter::LowerSTACKMAP(MCStreamer &OutStreamer, StackMaps &SM,
 
   // Emit nops.
   for (unsigned i = 0; i < NumNOPBytes; i += 4)
-    EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::HINT).addImm(0));
+    EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::HINT).addImm(0).setParent(ID));
 }
 
 // Lower a patchpoint of the form:
@@ -484,6 +490,13 @@ void AArch64AsmPrinter::LowerSTACKMAP(MCStreamer &OutStreamer, StackMaps &SM,
 void AArch64AsmPrinter::LowerPATCHPOINT(MCStreamer &OutStreamer, StackMaps &SM,
                                         const MachineInstr &MI) {
   SM.recordPatchPoint(MI);
+
+  const MachineBasicBlock &MBB = *MI.getParent();
+
+  // binpang. add.
+  unsigned MBBID = MBB.getNumber();
+  unsigned MFID = MBB.getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
 
   PatchPointOpers Opers(&MI);
 
@@ -498,18 +511,18 @@ void AArch64AsmPrinter::LowerPATCHPOINT(MCStreamer &OutStreamer, StackMaps &SM,
     EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::MOVZXi)
                                     .addReg(ScratchReg)
                                     .addImm((CallTarget >> 32) & 0xFFFF)
-                                    .addImm(32));
+                                    .addImm(32).setParent(ID));
     EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::MOVKXi)
                                     .addReg(ScratchReg)
                                     .addReg(ScratchReg)
                                     .addImm((CallTarget >> 16) & 0xFFFF)
-                                    .addImm(16));
+                                    .addImm(16).setParent(ID));
     EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::MOVKXi)
                                     .addReg(ScratchReg)
                                     .addReg(ScratchReg)
                                     .addImm(CallTarget & 0xFFFF)
-                                    .addImm(0));
-    EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::BLR).addReg(ScratchReg));
+                                    .addImm(0).setParent(ID));
+    EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::BLR).addReg(ScratchReg).setParent(ID));
   }
   // Emit padding.
   unsigned NumBytes = Opers.getNumPatchBytes();
@@ -518,11 +531,16 @@ void AArch64AsmPrinter::LowerPATCHPOINT(MCStreamer &OutStreamer, StackMaps &SM,
   assert((NumBytes - EncodedBytes) % 4 == 0 &&
          "Invalid number of NOP bytes requested!");
   for (unsigned i = EncodedBytes; i < NumBytes; i += 4)
-    EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::HINT).addImm(0));
+    EmitToStreamer(OutStreamer, MCInstBuilder(AArch64::HINT).addImm(0).setParent(ID));
 }
 
 void AArch64AsmPrinter::EmitFMov0(const MachineInstr &MI) {
   unsigned DestReg = MI.getOperand(0).getReg();
+  const MachineBasicBlock *MBB = MI.getParent();
+  unsigned MBBID = MBB->getNumber();
+  unsigned MFID = MBB->getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+
   if (STI->hasZeroCycleZeroing() && !STI->hasZeroCycleZeroingFPWorkaround()) {
     // Convert H/S/D register to corresponding Q register
     if (AArch64::H0 <= DestReg && DestReg <= AArch64::H31)
@@ -537,6 +555,8 @@ void AArch64AsmPrinter::EmitFMov0(const MachineInstr &MI) {
     MOVI.setOpcode(AArch64::MOVIv2d_ns);
     MOVI.addOperand(MCOperand::createReg(DestReg));
     MOVI.addOperand(MCOperand::createImm(0));
+    MOVI.setParent(ID);
+
     EmitToStreamer(*OutStreamer, MOVI);
   } else {
     MCInst FMov;
@@ -558,6 +578,7 @@ void AArch64AsmPrinter::EmitFMov0(const MachineInstr &MI) {
       FMov.addOperand(MCOperand::createReg(AArch64::XZR));
       break;
     }
+    FMov.setParent(ID);
     EmitToStreamer(*OutStreamer, FMov);
   }
 }
@@ -565,8 +586,27 @@ void AArch64AsmPrinter::EmitFMov0(const MachineInstr &MI) {
 // Simple pseudo-instructions have their lowering (with expansion to real
 // instructions) auto-generated.
 #include "AArch64GenMCPseudoLowering.inc"
+std::string GetMBBInstAArch(const MachineInstr *MI)
+{
+  const MachineBasicBlock *MBB = MI->getParent();
+  unsigned MBBID = MBB->getNumber();
+  unsigned MFID = MBB->getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+  //MBB->dump();
+  return ID;
+}
+
 
 void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
+  //ztt add refer to the X86MCInstLower.cpp L2028
+
+  std::string id_tmp = GetMBBInstAArch(MI);
+
+  const MCAsmInfo *MAI = getMCAsmInfo();
+  if (MAI->canMBBFallThrough.count(id_tmp) == 0)
+     MAI->canMBBFallThrough[id_tmp] = MF->canMBBFallThrough[id_tmp];
+  MAI->latestParentID = id_tmp;
+
   // Do any auto-generated pseudo lowerings.
   if (emitPseudoExpansionLowering(*OutStreamer, MI))
     return;
@@ -589,6 +629,15 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     if (STI->hasZeroCycleZeroingFPWorkaround() &&
         MI->getOperand(1).getImm() == 0) {
       MCInst TmpInst;
+
+      //ztt add
+      const MachineBasicBlock *MBB = MI->getParent();
+      unsigned MBBID = MBB->getNumber();
+      unsigned MFID = MBB->getParent()->getFunctionNumber();
+      std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+      TmpInst.setParent(ID);
+
+
       TmpInst.setOpcode(AArch64::MOVIv16b_ns);
       TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
       TmpInst.addOperand(MCOperand::createImm(MI->getOperand(1).getImm()));
@@ -612,6 +661,14 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
   // instruction here.
   case AArch64::TCRETURNri: {
     MCInst TmpInst;
+
+    //ztt add
+    const MachineBasicBlock *MBB = MI->getParent();
+    unsigned MBBID = MBB->getNumber();
+    unsigned MFID = MBB->getParent()->getFunctionNumber();
+    std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    TmpInst.setParent(ID);
+
     TmpInst.setOpcode(AArch64::BR);
     TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
     EmitToStreamer(*OutStreamer, TmpInst);
@@ -621,6 +678,14 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     MCOperand Dest;
     MCInstLowering.lowerOperand(MI->getOperand(0), Dest);
     MCInst TmpInst;
+
+    //ztt add
+    const MachineBasicBlock *MBB = MI->getParent();
+    unsigned MBBID = MBB->getNumber();
+    unsigned MFID = MBB->getParent()->getFunctionNumber();
+    std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    TmpInst.setParent(ID);
+
     TmpInst.setOpcode(AArch64::B);
     TmpInst.addOperand(Dest);
     EmitToStreamer(*OutStreamer, TmpInst);
@@ -634,6 +699,8 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     ///    .tlsdesccall var
     ///    blr   x1
     ///    (TPIDR_EL0 offset now in x0)
+
+    //ztt maybe this part no necessary
     const MachineOperand &MO_Sym = MI->getOperand(0);
     MachineOperand MO_TLSDESC_LO12(MO_Sym), MO_TLSDESC(MO_Sym);
     MCOperand Sym, SymTLSDescLo12, SymTLSDesc;
@@ -644,12 +711,28 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     MCInstLowering.lowerOperand(MO_TLSDESC, SymTLSDesc);
 
     MCInst Adrp;
+
+    //ztt add
+    const MachineBasicBlock *MBB = MI->getParent();
+    unsigned MBBID = MBB->getNumber();
+    unsigned MFID = MBB->getParent()->getFunctionNumber();
+    std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    Adrp.setParent(ID);
+
     Adrp.setOpcode(AArch64::ADRP);
     Adrp.addOperand(MCOperand::createReg(AArch64::X0));
     Adrp.addOperand(SymTLSDesc);
     EmitToStreamer(*OutStreamer, Adrp);
 
     MCInst Ldr;
+
+    //ztt add
+    const MachineBasicBlock *MBB1 = MI->getParent();
+    MBBID = MBB1->getNumber();
+    MFID = MBB1->getParent()->getFunctionNumber();
+    ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    Ldr.setParent(ID);
+
     Ldr.setOpcode(AArch64::LDRXui);
     Ldr.addOperand(MCOperand::createReg(AArch64::X1));
     Ldr.addOperand(MCOperand::createReg(AArch64::X0));
@@ -658,6 +741,14 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     EmitToStreamer(*OutStreamer, Ldr);
 
     MCInst Add;
+
+    //ztt add
+    const MachineBasicBlock *MBB2 = MI->getParent();
+    MBBID = MBB2->getNumber();
+    MFID = MBB2->getParent()->getFunctionNumber();
+    ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    Add.setParent(ID);
+
     Add.setOpcode(AArch64::ADDXri);
     Add.addOperand(MCOperand::createReg(AArch64::X0));
     Add.addOperand(MCOperand::createReg(AArch64::X0));
@@ -668,11 +759,27 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     // Emit a relocation-annotation. This expands to no code, but requests
     // the following instruction gets an R_AARCH64_TLSDESC_CALL.
     MCInst TLSDescCall;
+
+    //ztt add
+    const MachineBasicBlock *MBB3 = MI->getParent();
+    MBBID = MBB3->getNumber();
+    MFID = MBB3->getParent()->getFunctionNumber();
+    ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    TLSDescCall.setParent(ID);
+
     TLSDescCall.setOpcode(AArch64::TLSDESCCALL);
     TLSDescCall.addOperand(Sym);
     EmitToStreamer(*OutStreamer, TLSDescCall);
 
     MCInst Blr;
+
+    //ztt add
+    const MachineBasicBlock *MBB4 = MI->getParent();
+    MBBID = MBB4->getNumber();
+    MFID = MBB4->getParent()->getFunctionNumber();
+    ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    Blr.setParent(ID);
+
     Blr.setOpcode(AArch64::BLR);
     Blr.addOperand(MCOperand::createReg(AArch64::X1));
     EmitToStreamer(*OutStreamer, Blr);
@@ -693,14 +800,17 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     return LowerPATCHPOINT(*OutStreamer, SM, *MI);
 
   case TargetOpcode::PATCHABLE_FUNCTION_ENTER:
+    // binapng. TODO. handle this
     LowerPATCHABLE_FUNCTION_ENTER(*MI);
     return;
 
   case TargetOpcode::PATCHABLE_FUNCTION_EXIT:
+    // binpang. TODO. handle this
     LowerPATCHABLE_FUNCTION_EXIT(*MI);
     return;
 
   case TargetOpcode::PATCHABLE_TAIL_CALL:
+    // binpang. todo. handle this.
     LowerPATCHABLE_TAIL_CALL(*MI);
     return;
   }
@@ -708,6 +818,18 @@ void AArch64AsmPrinter::EmitInstruction(const MachineInstr *MI) {
   // Finally, do the automated lowerings for everything else.
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
+  // ztt_set_parent
+  //ztt add refer to the X86MCInstLower.cpp L2021
+  const MachineBasicBlock *MBB = MI->getParent();
+  unsigned MBBID = MBB->getNumber();
+  unsigned MFID = MBB->getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+  // printf("setParent in emitInstruction %s\n",ID.c_str());
+  //printf("=========BasicBlock %d============\n", MBBID);
+  // MBB->dump();
+  
+  TmpInst.setParent(ID);
+
   EmitToStreamer(*OutStreamer, TmpInst);
 }
 

@@ -7,16 +7,28 @@ author: binpang
 Block utils
 """
 
+import logging
 import capstone as cs
 import capstoneCallback
 
-from capstone import x86
-from elftools.elf.elffile import ELFFile 
+from capstone import CS_ARCH_ARM, x86
+from capstone import arm64
+from capstone import arm
+from elftools.elf.elffile import ELFFile
+from elftools.elf.relocation import RelocationSection
 from util import *
 import random
 import string
 import traceback
 import os
+import bbinfoconfig as bbl
+import mipsRegsAcc as mipsAcc
+
+
+RelocationList = list()
+RelocationName = dict()
+# store the valid loaded address range
+LOAD_RANGE = list()
 
 def randomString(stringLength=10):
     """Generate a random string of fixed length """
@@ -31,6 +43,79 @@ def hash64(x):
     x = x ^ (x >> 31)
     return x
 
+def mipsRet(inst):
+    if invalidInst(inst):
+        return False
+    if inst.mnemonic == 'jr':
+        reg = inst.operands[0]
+        if inst.reg_name(reg.value.reg) == 'ra':
+            return True
+    return False
+
+# ztt add to handle the arm ret
+def armRet(inst):
+    try:
+        if inst.mnemonic == "bx":
+            for i in inst.operands:
+                if i.type == arm.ARM_OP_REG and inst.reg_name(i.value.reg) == 'lr':
+                    return True
+    except:
+        return False
+    last_reg = ""
+    if inst.mnemonic == "pop":
+        for i in inst.operands:
+            if i.type == arm.ARM_OP_REG:
+                last_reg = inst.reg_name(i.value.reg)
+        if last_reg == "pc":
+            return True
+    if inst.mnemonic == "mov":
+        cnt = 0
+        reg = list()
+        for i in inst.operands:
+            if i.type == arm.ARM_OP_REG:
+                reg.append(inst.reg_name(i.value.reg))
+                cnt = cnt + 1
+        if cnt == 2 and reg[0] == "pc" and reg[1] == 'lr':
+            return True
+    return False
+
+# ztt add to handle the arm ret
+def archRelatedRet(inst):
+    if bbl.BB_ARCH == 'ARM' or bbl.BB_ARCH == 'AArch64':
+        return armRet(inst)
+    elif bbl.BB_ARCH == 'MIPS':
+        return mipsRet(inst)
+    else:
+        return False
+
+# ztt add to handle special indirect jmp
+def armCheck(inst):
+    cnt = 0
+    reg = list()
+    try:
+        for i in inst.operands:
+            if i.type == arm.ARM_OP_REG:
+                reg.append(inst.reg_name(i.value.reg))
+                cnt = cnt + 1
+        if cnt > 0 and reg[0] == "pc":
+            return True
+    except:
+        return False
+    return False
+    '''
+    for i in inst.operands:
+        if i.type == arm.ARM_OP_REG:
+            reg_name = inst.reg_name(i.reg)
+            if reg_name == "pc":
+                pc_flag = True
+        if i.type == arm.ARM_OP_MEM and i.mem.index != 0:
+                index_flag = True
+
+
+    if pc_flag and index_flag:
+        logging.info("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
+        return True
+    '''
 '''
 read function information from .eh_frame section
 '''
@@ -66,23 +151,33 @@ def isPureIndirect(inst):
 
     rets: True of False
     """
-    if inst.id == 0:
+
+    if invalidInst(inst):
         return False
 
+    if bbl.BB_ARCH == "MIPS":
+        return mipsAcc.isIndirect(inst)
+
     black_list = {"rip", "RIP", "eip", "EIP"}
-    if x86.X86_GRP_JUMP not in inst.groups and \
-            x86.X86_GRP_CALL not in inst.groups and \
-            "loop "not in inst.mnemonic.lower():
+
+    if bbl.BB_RET_FLAG == -1 and armCheck(inst):
+        return True
+    if bbl.BB_JUMP_FLAG not in inst.groups and \
+        bbl.BB_CALL_FLAG not in inst.groups and \
+            "loop " not in inst.mnemonic.lower():
+    #if x86.X86_GRP_JUMP not in inst.groups and \
+    #        x86.X86_GRP_CALL not in inst.groups and \
+    #        "loop "not in inst.mnemonic.lower():
         return False
 
     for i in inst.operands:
-        if i.type == x86.X86_OP_REG:
+        if i.type == bbl.BB_OP_REG:
              reg_name = inst.reg_name(i.reg)
              if reg_name in black_list:
                  continue
              logging.info("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
              return True
-        if i.type == x86.X86_OP_MEM:
+        if i.type == bbl.BB_OP_MEM:
             '''
             for jmp base[index, scale, displacement]
             '''
@@ -97,7 +192,9 @@ def checkTerminatorIsIndirect(MD, disassemble_content, current_addr):
         cur_inst = next(disasm_ins)
     except StopIteration:
         return False 
-    if cur_inst != None and (x86.X86_GRP_JUMP in cur_inst.groups or x86.X86_GRP_CALL in cur_inst.groups):
+            
+    if cur_inst != None and (bbl.BB_JUMP_FLAG in cur_inst.groups or bbl.BB_CALL_FLAG in cur_inst.groups):
+    #if cur_inst != None and (x86.X86_GRP_JUMP in cur_inst.groups or x86.X86_GRP_CALL in cur_inst.groups):
         if isPureIndirect(cur_inst):
             return True
     return False
@@ -109,7 +206,8 @@ def checkTerminatorIsIndirectJump(MD, disassemble_content, current_addr):
     except StopIteration:
         return False 
     try:
-        if cur_inst != None and x86.X86_GRP_JUMP in cur_inst.groups and isPureIndirect(cur_inst):
+        if cur_inst != None and bbl.BB_JUMP_FLAG in cur_inst.groups and isPureIndirect(cur_inst):
+        #if cur_inst != None and x86.X86_GRP_JUMP in cur_inst.groups and isPureIndirect(cur_inst):
             return True
     except:
         return False
@@ -122,7 +220,8 @@ def checkTerminatorIsIndirectCall(MD, disassemble_content, current_addr):
     except StopIteration:
         return False
     try:
-        if cur_inst != None and x86.X86_GRP_CALL in cur_inst.groups and isIndirect(cur_inst):
+        if cur_inst != None and bbl.BB_CALL_FLAG in cur_inst.groups and isIndirect(cur_inst):
+        #if cur_inst != None and x86.X86_GRP_CALL in cur_inst.groups and isIndirect(cur_inst):
             return True
     except:
         return False
@@ -139,6 +238,7 @@ def checkGroundTruthFuncNotIncluded(groundTruthRange, binary):
     result = set()
     with open(binary, 'rb') as openFile:
         elffile = ELFFile(openFile)
+        arch = elffile.get_machine_arch()
         symsec = elffile.get_section_by_name('.symtab')
         if symsec == None:
             logging.error("binary %s does not contain .symtab section!" % binary)
@@ -147,9 +247,11 @@ def checkGroundTruthFuncNotIncluded(groundTruthRange, binary):
             if 'STT_FUNC' != sym.entry['st_info']['type']:
                 continue
             func_addr = sym['st_value']
+            if arch == "ARM" and func_addr % 2 == 1:
+                func_addr = func_addr - 1
             func_name = sym.name
             if func_addr != 0 and sym['st_size'] != 0 and func_addr not in groundTruthRange:
-                logging.warning("[check ground truth function:] function %s in address 0x%x not in ground truth" % 
+                logging.warning("[check ground truth function:] function %s in address 0x%x not in ground truth" %
                         (func_name, func_addr))
                 result.add(func_addr)
     return result
@@ -260,10 +362,10 @@ TERMINAL_LIST = ['leave', 'hlt', 'ud2']
 class BlockType:
     OTHER = 0 # other type
     DIRECT_CALL = 1 # direct call instruction 
-    INDIRECT_CALL = 2 # indirect call instruction 
-    RET = 3 #  ret instruction 
+    INDIRECT_CALL = 2 # indirect call instruction
+    RET = 3 #  ret instruction
     COND_BRANCH = 4 # conditional jump(direct)
-    DIRECT_BRANCH = 5 # direct jump 
+    DIRECT_BRANCH = 5 # direct jump
     INDIRECT_BRANCH = 6 # indirect jump
     JUMP_TABLE = 7 # jump table
     NON_RETURN_CALL = 8 # non-return function all
@@ -274,6 +376,7 @@ class BlockType:
     JUMP_TOFUNC = 13#jump to another function start, but in current functin range. that is                       these two function share some codes
     DUMMY_JMP_TABLE = 14# dummy jump table
     INVALID_BB = 15 # discardd the basic block
+    INDIRECT_CALL_NO_RETURN = 16 # indirect call instruction with non-returns.
 
 class Inst():
     def __init__(self, va, size):
@@ -281,17 +384,18 @@ class Inst():
         self.size = size
 
 def isFallThrough(inst):
-    if inst.id == 0:
+    if invalidInst(inst):
         return True
-
-    if x86.X86_GRP_RET in inst.groups or \
+    #if x86.X86_GRP_RET in inst.groups or \
+    if bbl.BB_RET_FLAG in inst.groups or \
+            (bbl.BB_RET_FLAG == - 1 and armRet(inst)) or \
             inst.op_str in TERMINAL_LIST or inst.mnemonic in TERMINAL_LIST:
                 return False
-    if x86.X86_GRP_JUMP in inst.groups:
-        if 'jmp' in inst.mnemonic:
-            return False
-        return True
-        
+    if bbl.BB_CS_MODE_1 == cs.CS_ARCH_X86:
+        if x86.X86_GRP_JUMP in inst.groups and 'jmp' in inst.mnemonic:
+                    return False
+    elif bbl.BB_JUMP_FLAG in inst.groups:
+        return False
     return True
 
 def tryGetDirectTarget(MD, content, va, group_type, iat_targets):
@@ -326,17 +430,41 @@ def tryGetDirectTarget(MD, content, va, group_type, iat_targets):
     return (target, cur_inst, ret_type)
 
 def isTerminator(inst):
-    if inst.id == 0:
+    if invalidInst(inst):
         return False
-
+    '''
     if x86.X86_GRP_JUMP in inst.groups or \
-            x86.X86_GRP_RET in inst.groups or \
-            x86.X86_GRP_CALL in inst.groups or \
-            "loop "in inst.mnemonic.lower() or \
+        x86.X86_GRP_RET in inst.groups or \
+        x86.X86_GRP_CALL in inst.groups or \
+        "loop "in inst.mnemonic.lower() or \
+        inst.op_str in TERMINAL_LIST or inst.mnemonic in TERMINAL_LIST:
+    '''
+    if inst.mnemonic == "bl" or inst.mnemonic == "blr":
+        return False
+    if bbl.BB_JUMP_FLAG in inst.groups or \
+            bbl.BB_RET_FLAG in inst.groups or \
+                (bbl.BB_RET_FLAG == - 1 and archRelatedRet(inst)) or \
+                        (bbl.BB_RET_FLAG == - 1 and armCheck(inst)) or \
+                            "loop "in inst.mnemonic.lower() or \
             inst.op_str in TERMINAL_LIST or inst.mnemonic in TERMINAL_LIST:
         return True
     return False
 
+def get_last_instr(inst_list):
+    '''
+    get last instruction of basic blocks
+
+        @args: list of instructions
+        @ret: the last instruction
+    '''
+    ### MIPS has the delay slots for jump/call instructions
+    if bbl.BB_ARCH == "MIPS":
+        if len(inst_list) > 1 and not invalidInst(inst_list[-2]) and \
+            (bbl.BB_JUMP_FLAG in inst_list[-2].groups or bbl.BB_CALL_FLAG in inst_list[-2].groups):
+            return inst_list[-2]
+        return inst_list[-1]
+    else:
+        return inst_list[-1]
 
 # splited basic block, we may split the basic block by `call` instruction
 class Blk():
@@ -350,8 +478,8 @@ class Blk():
         self.start = start
         self.end = end
         self.parent = parent
-        self.type = 0 
-        self.fall_through = fall_through 
+        self.type = 0
+        self.fall_through = fall_through
         self.is_jump = False
         self.is_call = False
 
@@ -366,7 +494,7 @@ class Blk():
 
         self.size = end - start
         self.padding = 0
-    
+
     def set_type(self, groups, indirect):
         """
         set blk type
@@ -375,16 +503,19 @@ class Blk():
             indirect: bool
         """
 
-        if x86.X86_GRP_RET in groups:
+        if bbl.BB_RET_FLAG in groups:
+        #if x86.X86_GRP_RET in groups:
             self.type = BlockType.RET
             return
 
         jump = False
         call = False
-        if x86.X86_GRP_JUMP in groups:
+        if bbl.BB_JUMP_FLAG in groups:
+        #if x86.X86_GRP_JUMP in groups:
             jump = True
             self.is_jump = True
-        elif x86.X86_GRP_CALL in groups:
+        elif bbl.BB_CALL_FLAG in groups:
+        #elif x86.X86_GRP_CALL in groups:
             self.is_call = True
             call = True
 
@@ -398,17 +529,25 @@ class Blk():
 
         elif call:
             if indirect:
-                self.type = BlockType.INDIRECT_CALL
-            elif self.fall_through:
-                self.type = BlockType.DIRECT_CALL
+                if self.fall_through:
+                    self.type = BlockType.INDIRECT_CALL
+                else:
+                    self.type = BlockType.INDIRECT_CALL_NO_RETURN
             else:
-                self.type = BlockType.NON_RETURN_CALL
+                if self.fall_through:
+                    self.type = BlockType.DIRECT_CALL
+                else:
+                    self.type = BlockType.NON_RETURN_CALL
 
         elif self.fall_through == True:
             self.type = BlockType.FALL_THROUGH
         else:
             self.type = BlockType.OTHER
-
+    def type_special_handle(self,inst):
+        if armCheck(inst): #check pc change
+            self.type = BlockType.INDIRECT_BRANCH
+        if archRelatedRet(inst):
+            self.type = BlockType.RET
     def insert_instruction(self, ins):
         self.ins_list.append(ins)
 
@@ -439,24 +578,30 @@ args:
 '''
 def init_capstone(elf_class):
     md = None
+    md = cs.Cs(bbl.BB_CS_MODE_1, bbl.BB_CS_MODE_2 + bbl.BB_ENDIAN)
+    """
     if elf_class == 64:
         md = cs.Cs(cs.CS_ARCH_X86, cs.CS_MODE_64)
     elif elf_class == 32:
         md = cs.Cs(cs.CS_ARCH_X86, cs.CS_MODE_32)
     else:
-        logging.error("Architecture {} bits not supported yet!".format(elf_class)) 
+        logging.error("Architecture {} bits not supported yet!".format(elf_class))
         exit(-1)
-
+    """
     if md == None:
         return None
     # capstone4.0.1 can't handle some instructions. such as wrpkru and rdpkru
     # so we write the handler to handle these instructions
-    md.skipdata_setup = (".unhandled", capstoneCallback.mycallback, None)
-    md.skipdata = True
+    if bbl.BB_ARCH == 'X86':
+        md.skipdata_setup = (".unhandled", capstoneCallback.mycallback, None)
+        md.skipdata = True
+    else:
+        md.skipdata_setup = (".unhandled", None, None)
+        md.skipdata = True
     md.detail = True
     return md
 
-def split_block(bb, binary, split, elf_class):
+def split_block(bb, binary, split, elf_class,elf_arch):
     """
     split the type `basicblock` into `Blk`s
     args:
@@ -466,22 +611,36 @@ def split_block(bb, binary, split, elf_class):
         elf_class: 32 or 64 bit
     """
     result = list()
+
+    ### binpang. do not split the basic blocks by default.
+    logging.debug("bb.VA is 0x%x, bb.BaseOff is 0x%x, bb.size is 0x%x, bb.padding is 0x%x" %(bb.VA,bb.offsetFromBase,bb.size,bb.padding))
+    result.append(Blk(bb.VA, bb.offsetFromBase, bb.size + bb.offsetFromBase - bb.padding, bb, bb.hasFallThrough))
+    return result
+
     start_adr = bb.offsetFromBase
     end_adr = bb.size + start_adr - bb.padding
-    if split == False and bb.assembleType == 0:
+    if split == False and bb.assembleType == 0 and elf_arch == 'X86':
+        #logging.debug("Range is 0x%x - 0x%x, bb.size 0x%x is bb.padding is 0x%x" %(start_adr,end_adr,bb.size,bb.padding))
         # some bug that in ccr
         jmp_inst = list()
         with open(binary, 'rb') as infile:
             readdata = infile.read(end_adr)
             bbdata = readdata[start_adr:]
             md = init_capstone(elf_class)
+            if(bb.type & (1 << 6) == 64):
+                md.mode = bbl.BB_CS_MODE_3
+            else:
+                md.mode = bbl.BB_CS_MODE_2
             inslist = md.disasm(bbdata, bb.VA)
             block_start = start_adr
             block_end = end_adr
             last_inst = None
             inst_idx = 0
             for i in inslist:
-                if x86.X86_GRP_JUMP in i.groups:
+                if bbl.BB_JUMP_FLAG in i.groups:
+                    if i.mnemonic == "bl" or i.mnemonic == "blr":
+                        continue
+                #if x86.X86_GRP_JUMP in i.groups:
                     inst_idx += 1
                     jmp_inst.append(i)
 
@@ -490,13 +649,13 @@ def split_block(bb, binary, split, elf_class):
             if len(jmp_inst) > 0:
                 for jmp in jmp_inst:
                     end_addr = jmp.address + jmp.size - bb.VA + bb.offsetFromBase
-                    fall_through = False if 'jmp' in jmp.mnemonic.lower() else True
+                    fall_through = False
+                    if bbl.BB_CS_MODE_1 == cs.CS_ARCH_X86 and 'jmp' not in jmp.mnemonic.lower():
+                        fall_through = True
                     result.append(Blk(current_addr, current_start_addr, end_addr, bb, fall_through))
-                    logging.info("hello, current start 0x%x - 0x%x" % (current_start_addr, end_addr))
                     current_addr = jmp.address + jmp.size
                     current_start_addr = end_addr
             if current_start_addr != block_end:
-                logging.info("hello, current start 0x%x - 0x%x" % (current_start_addr, block_end))
                 result.append(Blk(current_addr, current_start_addr, block_end, bb, bb.hasFallThrough))
         return result
 
@@ -509,6 +668,10 @@ def split_block(bb, binary, split, elf_class):
         readdata = infile.read(end_adr)
         bbdata = readdata[start_adr:]
         md = init_capstone(elf_class)
+        if(bb.size & (1 << 6) == 64):
+            md.mode = bbl.BB_CS_MODE_3
+        else:
+            md.mode = bbl.BB_CS_MODE_2
         inslist = md.disasm(bbdata, bb.VA)
         block_start = start_adr
         block_end = start_adr
@@ -516,9 +679,11 @@ def split_block(bb, binary, split, elf_class):
         for i in inslist:
             last_inst = i
             block_end += i.size
-            if i.id == 0:
+
+            if invalidInst(i):
                 continue
-            if split == True and x86.X86_GRP_CALL in i.groups:
+            if split == True and bbl.BB_CALL_FLAG in i.groups:
+            #if split == True and x86.X86_GRP_CALL in i.groups:
                 # block offset from binary file,
                 # We deem call instruction fall through
                 result.append(Blk(bb.VA + block_start - start_adr, block_start, block_end, bb, True))
@@ -531,7 +696,9 @@ def split_block(bb, binary, split, elf_class):
             elif isTerminator(i):
                 fall_through = True
                 # FIXME: if the jump instruction is fall through
-                if 'jmp' in i.mnemonic.lower() or x86.X86_GRP_RET in i.groups:
+                #TODO(ztt) arm have no ret
+                if 'jmp' in i.mnemonic.lower() or bbl.BB_RET_FLAG in i.groups or (bbl.BB_RET_FLAG == - 1 and armRet(i)):
+                #if 'jmp' in i.mnemonic.lower() or x86.X86_GRP_RET in i.groups:
                     fall_through = False
                 result.append(Blk(bb.VA + block_start - start_adr, block_start, block_end, bb, fall_through))
                 logging.info("[Split block]: `dummy` block is split by jmp: addr %x, offset is %x - %x" % \
@@ -564,6 +731,44 @@ def readElfClass(binary):
         elffile = ELFFile(openFile)
         result = elffile.elfclass
     return result
+def readElfRelocation(binary):
+    offset2reloction = dict()
+    with open(binary, 'rb') as openFile:
+        elffile = ELFFile(openFile)
+        for section in elffile.iter_sections():
+            if isinstance(section, RelocationSection):
+                #logging.info("Relocation Info:")
+                #logging.info(section.name)
+                if "debug" in section.name:
+                    continue
+                symbol_table = elffile.get_section(section['sh_link'])
+                for relocation in section.iter_relocations():
+                    symbol = symbol_table.get_symbol(relocation['r_info_sym'])
+                    addr = relocation['r_offset']
+                    try:
+                        addend = relocation['r_addend']
+                    except KeyError:
+                        addend = 0
+                    value = symbol.entry['st_value']
+                    offset2reloction[addr] = value+addend
+                    RelocationList.append(addr)
+                    RelocationName[addr] = symbol.name
+                    # logging.debug("value is %x, addr is 0x%x, addend is %x" %(value,addr,addend))
+    return offset2reloction
+def readElfArch(binary):
+    result = "ARM"
+    with open(binary, 'rb') as openFile:
+        elffile = ELFFile(openFile)
+        result = elffile.get_machine_arch()
+        print(result)
+    return result
+
+def readElfEndian(binary):
+    little_endian = True
+    with open(binary, 'rb') as openFile:
+        elffile = ELFFile(openFile)
+        little_endian = elffile.little_endian
+    return little_endian
 
 def getLoadAddressRange(binary):
     load_range = list()
@@ -575,6 +780,16 @@ def getLoadAddressRange(binary):
             load_range.append((seg['p_vaddr'], seg['p_vaddr'] + seg['p_memsz']))
     return load_range
 
+def getLoadOffset(binary):
+    load_offsets = list()
+    with open(binary, 'rb') as openFile:
+        elffile = ELFFile(openFile)
+        for seg in elffile.iter_segments():
+            if seg['p_type'] != 'PT_LOAD':
+                continue
+            load_offsets.append(seg['p_offset'])
+    return load_offsets
+
 def enlargeRange(load_range, append_range=0x1024):
     new_range = list()
     for (start, end) in load_range:
@@ -583,6 +798,7 @@ def enlargeRange(load_range, append_range=0x1024):
 
 
 def isInRange(addr, range_list):
+    #logging.info(addr)
     for (start, end) in range_list:
         if addr >= start and addr < end:
             return True
@@ -619,7 +835,15 @@ def readSectionRange(binary, sec):
             sec_start = elf_sec['sh_addr']
             sec_end = sec_start + elf_sec['sh_size']
     return (sec_start, sec_end)
-        
+
+def is_arm(file):
+    with open(file, 'rb') as openFile:
+        elffile = ELFFile(openFile)
+        machine = elffile.header['e_machine']
+        if machine == "EM_ARM" or machine == "EM_AARCH64":
+            return True
+    return False
+
 """
 in openssl, some function start with some .byte(s)
 so there may omit some function start
@@ -643,7 +867,8 @@ def fixFunctionStartInGaps(bblLayout, binary):
     with open(binary, 'rb') as openFile:
         elf = ELFFile(openFile)
         sym_sec = elf.get_section_by_name('.symtab')
-        if sym_sec == None:
+        if sym_sec is None:
+            logging.debug("None")
             return bblLayout
         for sym in sym_sec.iter_symbols():
             addr = sym['st_value']
@@ -689,19 +914,32 @@ def fixFunctionStartInGaps(bblLayout, binary):
             # check the if the function between a gap
             for (start, end) in range_not_included:
                 if func_offset >= start and func_offset < end:
-                    logging.debug("[fixFunctionStartInGaps]: found function start 0x%x between gaps(0x%x - 0x%x)!" % 
+                    logging.debug("T[fixFunctionStartInGaps]: found function start 0x%x between gaps(0x%x - 0x%x)!" %
                             (func, text_base_addr + start, text_base_addr + end))
                     # we assume the handwritten .byte is not toooo much
                     if end - func_offset < 0x20 and end in bb_dict_index:
-                        logging.debug("lalal, we find .byte(s) before function start!")
-                        idx = bb_dict_index[end]
-                        added_size = end - func_offset
-                        old_start = bblLayout[idx].offset + text_base_addr
-                        new_start = old_start - added_size
-                        bblLayout[idx].bb_size += added_size
-                        bblLayout[idx].offset -= added_size
-                        logging.debug("[fixFunctionStartInGaps]: change bb from 0x%x to 0x%x" % 
-                                (old_start, new_start))
+                        if bbl.BB_RET_FLAG == -1:
+                            logging.debug("lalal, we need to add func bb")
+                            idx = bb_dict_index[end]
+                            temp = bblLayout.add()
+                            temp.bb_size = end - func_offset
+                            temp.type = 1
+                            temp.bb_fallthrough = False
+                            temp.section_name = bblLayout[idx].section_name
+                            temp.offset = bblLayout[idx].offset - temp.bb_size
+                            temp.padding_size = 0
+                            temp.num_fixups = 0
+                            logging.error("Add BBL from 0x%x - 0x%x" %(temp.offset + text_base_addr,temp.offset + text_base_addr + temp.bb_size))
+                        else:
+                            logging.debug("lalal, we find .byte(s) before function start!")
+                            idx = bb_dict_index[end]
+                            added_size = end - func_offset
+                            old_start = bblLayout[idx].offset + text_base_addr
+                            new_start = old_start - added_size
+                            bblLayout[idx].bb_size += added_size
+                            bblLayout[idx].offset -= added_size
+                            logging.debug("T1[fixFunctionStartInGaps]: change bb from 0x%x to 0x%x" %
+                                    (old_start, new_start))
     return bblLayout
 
 
@@ -771,9 +1009,13 @@ def fixOneBytePadding(layout):
 check if the instruction have prefix
 """
 def checkInsPrefix(ins):
-    if ins.id == 0:
+    if invalidInst(ins):
         return False
-    prefix = sum(ins.prefix)
+    #only for x86 so try catch
+    try:
+        prefix = sum(ins.prefix)
+    except AttributeError:
+        return False
     return prefix != 0
 
 
@@ -845,7 +1087,7 @@ def checkGapsAtEnd(module, sec_end_addr):
                 range_not_included.append(
                         (start_addr, end_addr))
                 if (end_addr > start_addr):
-                    logging.info("Found Gaps#%d in section %s, between 0x%x - 0x%x, size: %d" % 
+                    logging.info("Found Gaps#%d in section %s, between 0x%x - 0x%x, size: %d" %
                         (gaps_num, ".text", start_addr, end_addr, end_addr - start_addr))
                     gaps_num += 1
         # gaps between last basic block and section end
@@ -872,15 +1114,21 @@ def disassembleBB(blk, binary, elf_class, one_inst = False):
     viradr = blk.VA
     startadr = blk.start
     endadr = blk.end
+    Type = blk.parent.type
     inslist = None
     with open(binary, 'rb') as infile:
         readdata = infile.read(endadr)
         bbdata = readdata[startadr:]
         md = init_capstone(elf_class)
+        if(Type & (1 << 6) == 64):
+            md.mode = bbl.BB_CS_MODE_3
+        else:
+            md.mode = bbl.BB_CS_MODE_2
         current_addr = viradr
         end_vir_addr = viradr + endadr - startadr
         inslist = list()
         while current_addr < end_vir_addr:
+            #logging.info(f"HELLO, current address is 0x%x, the bytes is %s" % (current_addr, ''.join('{:02x}'.format(x) for x in bbdata)))
             disasm_result = md.disasm(bbdata, current_addr, count = 1)
             try:
                 cur_inst = next(disasm_result)
@@ -888,8 +1136,8 @@ def disassembleBB(blk, binary, elf_class, one_inst = False):
                 break
 
 
-            if cur_inst.id == 0:
-                logging.info("Instructions that capstone can't handled. 0x%x" % 
+            if invalidInst(cur_inst):
+                logging.error("Instructions that capstone can't handled. 0x%x" %
                         (cur_inst.address))
 
             current_addr += cur_inst.size
@@ -901,18 +1149,25 @@ def disassembleBB(blk, binary, elf_class, one_inst = False):
 
         # check if the basic block is disassembled correctlly
         if current_addr < end_vir_addr:
-            logging.error("OMG, The basic block 0x%x - 0x%x is not correctly handled" % 
+            logging.error("OMG, The basic block 0x%x - 0x%x is not correctly handled" %
                     (blk.VA, blk.VA + blk.end - blk.start))
     return inslist
 
+'''
+capstone can't handle some instructions
+'''
+def invalidInst(i):
+    if i == None or i.id == 0 or i.mnemonic == '.unhandled':
+        return True
+    return False
 # helper function
 # get instruction string
 def getInstStr(i):
-    if i == None or i.id == 0:
-        return "" 
+    if invalidInst(i):
+        return ""
     return "0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str)
 
-def recursiveDisassembleInRange(binary, gap_start, 
+def recursiveDisassembleInRange(binary, gap_start,
                         start, end, entry, elf_class):
     # store visited instruction address
     visited = set()
@@ -948,11 +1203,15 @@ def recursiveDisassembleInRange(binary, gap_start,
             continue
 
         if current_blk == None:
-            current_blk = Blk(gap_start + current_offset, 
+            current_blk = Blk(gap_start + current_offset,
                             current_offset + start, current_offset + start,
                             None, False, current_function)
         visited.add(current_offset)
         current_data = gap_data[current_offset:]
+        if current_blk.parent.type & (1 << 6) == 64:
+            md.mode = bbl.BB_CS_MODE_3
+        else:
+            md.mode = bbl.BB_CS_MODE_2
         disasm_result = md.disasm(current_data, current_offset + gap_start, count = 1)
         try:
             cur_inst = next(disasm_result)
@@ -975,9 +1234,10 @@ def recursiveDisassembleInRange(binary, gap_start,
                 current_blk.type = BlockType.FALL_THROUGH
 
             if isIndirect(cur_inst):
-                logging.warning("[Recursive disassembling in Gaps]: there exists indirect instructions in .byte 0x%x: %s" % 
+                logging.warning("[Recursive disassembling in Gaps]: there exists indirect instructions in .byte 0x%x: %s" %
                         (cur_inst.address, getInstStr(cur_inst)))
-                if x86.X86_GRP_CALL in cur_inst.groups:
+                if bbl.BB_CALL_FLAG in cur_inst.groups:
+                #if x86.X86_GRP_CALL in cur_inst.groups:
                     current_blk.type = BlockType.INDIRECT_CALL
                 else:
                     current_blk.type = BlockType.INDIRECT_BRANCH
@@ -1001,7 +1261,8 @@ def recursiveDisassembleInRange(binary, gap_start,
                     # get the target address offset from the gap start
                     target_offset = target - gap_start
                     current_blk.add_successor(target)
-                    if x86.X86_GRP_CALL in cur_inst.groups:
+                    if bbl.BB_CALL_FLAG in cur_inst.groups:
+                    #if x86.X86_GRP_CALL in cur_inst.groups:
                         task.append((target_offset, target))
                         current_blk.type = BlockType.DIRECT_CALL
                     else:
@@ -1063,10 +1324,14 @@ def recursiveDisassembleInRange(binary, gap_start,
             continue
 
         if current_blk == None:
-            current_blk = Blk(gap_start + current_offset, 
+            current_blk = Blk(gap_start + current_offset,
                             current_offset + start, current_offset + start,
                             None, False, current_function)
         visited.add(current_offset)
+        if current_blk.parent != None and current_blk.parent.type & (1 << 6) == 64:
+            md.mode = bbl.BB_CS_MODE_3
+        else:
+            md.mode = bbl.BB_CS_MODE_2
         current_data = gap_data[current_offset:]
         disasm_result = md.disasm(current_data, current_offset + gap_start, count = 1)
         try:
@@ -1090,9 +1355,9 @@ def recursiveDisassembleInRange(binary, gap_start,
                 current_blk.type = BlockType.FALL_THROUGH
 
             if isIndirect(cur_inst):
-                logging.warning("[Recursive disassembling in Gaps]: there exists indirect instructions in .byte 0x%x: %s" % 
+                logging.warning("[Recursive disassembling in Gaps]: there exists indirect instructions in .byte 0x%x: %s" %
                         (cur_inst.address, getInstStr(cur_inst)))
-                if x86.X86_GRP_CALL in cur_inst.groups:
+                if bbl.BB_CALL_FLAG in cur_inst.groups:
                     current_blk.type = BlockType.INDIRECT_CALL
                 else:
                     current_blk.type = BlockType.INDIRECT_BRANCH
@@ -1116,7 +1381,8 @@ def recursiveDisassembleInRange(binary, gap_start,
                     # get the target address offset from the gap start
                     target_offset = target - gap_start
                     current_blk.add_successor(target)
-                    if x86.X86_GRP_CALL in cur_inst.groups:
+                    if bbl.BB_CALL_FLAG in cur_inst.groups:
+                    #if x86.X86_GRP_CALL in cur_inst.groups:
                         task.append((target_offset, target))
                         current_blk.type = BlockType.DIRECT_CALL
                     else:
@@ -1128,16 +1394,21 @@ def recursiveDisassembleInRange(binary, gap_start,
 
 # get target address from jump/call instruction
 def getDirectAddress(inst):
-    if inst.id == 0:
+    if invalidInst(inst):
         return None
-
+    '''
     if x86.X86_GRP_JUMP not in inst.groups and \
-            x86.X86_GRP_CALL not in inst.groups and \
+        x86.X86_GRP_CALL not in inst.groups and \
+        "loop" not in inst.mnemonic.lower():
+    '''
+    if bbl.BB_JUMP_FLAG not in inst.groups and \
+            bbl.BB_CALL_FLAG not in inst.groups and \
             "loop" not in inst.mnemonic.lower():
         return None
     target_addr = None
     for op in inst.operands:
-        if op.type == x86.X86_OP_IMM:
+        if op.type == bbl.BB_OP_IMM:
+        #if op.type == x86.X86_OP_IMM:
             target_addr = op.value.imm
 
     return target_addr
@@ -1153,23 +1424,30 @@ def isDirect(inst):
 
     rets: True of False
     """
-    if inst.id == 0:
+    if invalidInst(inst):
         return False
 
     black_list = {"rip", "RIP", "eip", "EIP"}
+    '''
     if x86.X86_GRP_JUMP not in inst.groups and \
             x86.X86_GRP_CALL not in inst.groups and \
+            "loop "not in inst.mnemonic.lower():
+    '''
+    if bbl.BB_JUMP_FLAG not in inst.groups and \
+            bbl.BB_CALL_FLAG not in inst.groups and \
             "loop "not in inst.mnemonic.lower():
         return False
 
     for i in inst.operands:
-        if i.type == x86.X86_OP_REG:
+        if i.type == bbl.BB_OP_REG:
+        # if i.type == x86.X86_OP_REG:
              reg_name = inst.reg_name(i.reg)
              if reg_name in black_list:
                  continue
              logging.info("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
              return False
-        if i.type == x86.X86_OP_MEM:
+        if i.type == bbl.BB_OP_MEM:
+        #if i.type == x86.X86_OP_MEM:
             '''
             for jmp base[index, scale, displacement]
             '''
@@ -1184,9 +1462,12 @@ def isDirect(inst):
     return True
 
 def getDirectTarget(inst):
+    if invalidInst(inst):
+        return None
     result = None
     for i in inst.operands:
-        if i.type == x86.X86_OP_IMM:
+        if i.type == bbl.BB_OP_IMM:
+        #if i.type == x86.X86_OP_IMM:
             result = i.imm
     return result
 
@@ -1194,10 +1475,12 @@ def getDirectTargetAndMem(inst):
     result = None
     ret_type = 0
     for i in inst.operands:
-        if i.type == x86.X86_OP_IMM:
+        if i.type == bbl.BB_OP_IMM:
+        #if i.type == x86.X86_OP_IMM:
             result = i.imm
             ret_type = 1
-        if i.type == x86.X86_OP_MEM:
+        if i.type == bbl.BB_OP_MEM:
+        #if i.type == x86.X86_OP_MEM:
             if i.mem.disp != 0:
                 ret_type = 2
                 result = i.mem.disp
@@ -1215,38 +1498,67 @@ def isIndirect(inst):
 
     rets: True of False
     """
-    if inst.id == 0:
+    if invalidInst(inst):
         return False
+
+    if bbl.BB_ARCH == "MIPS":
+        return mipsAcc.isIndirect(inst)
 
     black_list = {"rip", "RIP", "eip", "EIP"}
-    if x86.X86_GRP_JUMP not in inst.groups and \
-            x86.X86_GRP_CALL not in inst.groups and \
+
+    #ztt add fix the list, the jump with reg but is not idirect jump
+    aarch64_list = {"cbz","cbnz","tbz","tbnz","blr"}
+    arm_list = {"cbz","cbnz","blx"}
+    bz_list = {}
+
+    if bbl.BB_CS_MODE_1 == cs.CS_ARCH_ARM64:
+        bz_list = aarch64_list
+    elif bbl.BB_CS_MODE_1 == cs.CS_ARCH_ARM:
+        bz_list = arm_list
+    if bbl.BB_RET_FLAG == -1 and armCheck(inst):
+        return True
+    if bbl.BB_JUMP_FLAG not in inst.groups and \
+            bbl.BB_CALL_FLAG not in inst.groups and \
             "loop "not in inst.mnemonic.lower():
         return False
-
+    if inst.mnemonic in bz_list:
+        return False
     for i in inst.operands:
-        if i.type == x86.X86_OP_REG:
+        if i.type == bbl.BB_OP_REG:
              reg_name = inst.reg_name(i.reg)
              if reg_name in black_list:
                  continue
              logging.debug("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
              return True
-        if i.type == x86.X86_OP_MEM:
+        if i.type == bbl.BB_OP_MEM:
             '''
             for jmp base[index, scale, displacement]
             '''
             if i.mem.index != 0:
                 logging.debug("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
                 return True
+            
 
     if 'ptr' in inst.op_str:
         logging.debug("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
         return True
 
     return False
-    
+
+# get the reads and writes of registers
+def regs_access(instr):
+    if invalidInst(instr):
+        return (list(), list())
+
+    if bbl.BB_ARCH == "MIPS":
+        return mipsAcc.regs_access(instr)
+    else:
+        return instr.regs_access()
+
+
+
 def instReadRegsIsTaint(inst, tainted_regs):
-    (regs_read, _) = inst.regs_access()
+    (regs_read, _) = regs_access(inst)
     for r in regs_read:
         if r in tainted_regs:
             return True
@@ -1258,11 +1570,13 @@ def taintRegsCrossBB(ins_lists, tainted_regs, first = False):
     # initialize the tainted_regs
     if first:
         first_inst = ins_lists[0]
-        (regs_read, regs_write) = first_inst.regs_access()
+        (regs_read, regs_write) = regs_access(first_inst)
+        # logging.info(regs_write)
+        # logging.info(regs_read)
         for r in regs_write:
             reg_name = first_inst.reg_name(r)
             logging.debug("[taint initialize]: reg write is %s " % (reg_name))
-            if 'ip' in reg_name:
+            if 'ip' in reg_name and bbl.BB_ARCH == "X86":
                 continue
             tainted_regs.add(r)
             logging.debug("[taint initialize]: reg name is %s " % (reg_name))
@@ -1270,30 +1584,74 @@ def taintRegsCrossBB(ins_lists, tainted_regs, first = False):
         ins_lists.pop(0)
 
     for inst in ins_lists:
-
-        (regs_read, regs_write) = inst.regs_access()
+        if invalidInst(inst):
+            continue
+        (regs_read, regs_write) = regs_access(inst)
         taint_read = False
-
+        logging.debug("0x%x:\t%s\t%s" %(inst.address, inst.mnemonic, inst.op_str))
         for r in regs_read:
             if r in tainted_regs:
                 taint_read = True
                 break
-
         # taint the write regs
         if taint_read:
+            logging.debug("find taint read")
             for r in regs_write:
-                reg_name = inst.reg_name(r)
-                if 'ip' in reg_name:
-                    continue
-                tainted_regs.add(r)
-                logging.debug("[taint propogation]: reg name is %s " % reg_name)
+                    reg_name = inst.reg_name(r)
+                    if 'ip' in reg_name  and bbl.BB_ARCH == "X86":
+                        continue
+                    tainted_regs.add(r)
+                    logging.debug("[taint propogation]: reg name is %s" % inst.reg_name(r))
         # clear the taint regs
         else:
             for r in regs_write:
                 reg_name = inst.reg_name(r)
                 if r in tainted_regs:
                     tainted_regs.remove(r)
-                    logging.debug("[taint clear]: reg name is %s " % reg_name)
+                    logging.debug("[taint clear]: reg name is %s " % inst.reg_name(r))
+
+        str_instrs = {'str', 'sw', 'sd', 'sb'}
+        ldr_instrs = {'ldr', 'lw', 'ld', 'lb'}
+        if inst.mnemonic in str_instrs:
+            for i in inst.operands:
+                if i.type == bbl.BB_OP_REG:
+                    reg = i.value.reg
+                if i.type == bbl.BB_OP_MEM and \
+                    i.value.mem.base != 0 and \
+                        inst.reg_name(i.value.mem.base) in {'sp', 'fp'}:
+                            if inst.reg_name(i.value.mem.base) == 'sp':
+                                shift_v = 12
+                            else:
+                                shift_v = 18
+                            mem_taint = i.value.mem.disp + (1 << shift_v)
+                            logging.debug("May be mem taint!")
+                            if reg in tainted_regs:
+                                tainted_regs.add(mem_taint)
+                                logging.debug("[taint propogation]: mem offset is %d " % i.value.mem.disp)
+                            elif mem_taint in tainted_regs:
+                                tainted_regs.remove(mem_taint)
+                                logging.debug("[taint clear]: mem offset is %d " % i.value.mem.disp)
+        if inst.mnemonic in ldr_instrs:
+            for i in inst.operands:
+                if i.type == bbl.BB_OP_REG:
+                    reg = i.value.reg
+                if i.type == bbl.BB_OP_MEM and \
+                    i.value.mem.base != 0 and \
+                        inst.reg_name(i.value.mem.base) in {'sp', 'fp'}:
+                            if inst.reg_name(i.value.mem.base) == 'sp':
+                                shift_v = 12
+                            else:
+                                shift_v = 18
+
+                            mem_taint = i.value.mem.disp + (1 << shift_v)
+                            if mem_taint in tainted_regs  or i.value.mem.base in tainted_regs:
+                                tainted_regs.add(reg)
+                                logging.debug("[taint propogation]: mem offset is %s " % inst.reg_name(reg))
+                            elif reg in tainted_regs:
+                                    tainted_regs.remove(reg)
+                                    logging.debug("[taint clear]: reg name is %s " % inst.reg_name(reg))
+
+
 
     logging.debug("[updated regs]: {}".format(tainted_regs))
     return tainted_regs
@@ -1310,23 +1668,41 @@ def isJumpTable(inst):
 
     rets: True of False
     """
-    if inst.id == 0:
+    if invalidInst(inst):
         return False
 
     black_list = {"rip", "RIP", "eip", "EIP"}
-    if x86.X86_GRP_JUMP not in inst.groups and \
-            x86.X86_GRP_CALL not in inst.groups and \
-            "loop "not in inst.mnemonic.lower():
-        return False
-
+    if bbl.BB_RET_FLAG == -1:
+        pc_flag = False
+        index_flag = False
+        cnt = 0
+        for i in inst.operands:
+            if i.type == bbl.BB_OP_REG:
+                reg_name = inst.reg_name(i.reg)
+                if reg_name == "pc" and cnt == 0:
+                    pc_flag = True
+                    '''
+            if i.type == bbl.BB_OP_MEM:
+                if i.mem.index != 0:
+                    index_flag = True
+                    '''
+                    #comment this for the mov pc, r0
+            cnt = cnt + 1
+        if pc_flag:
+            logging.info("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
+            return True
+    if bbl.BB_JUMP_FLAG not in inst.groups and \
+                bbl.BB_CALL_FLAG not in inst.groups and \
+                "loop "not in inst.mnemonic.lower():
+            return False
     for i in inst.operands:
-        if i.type == x86.X86_OP_REG:
+        if i.type == bbl.BB_OP_REG:
              reg_name = inst.reg_name(i.reg)
              if reg_name in black_list:
                  continue
              logging.info("[indirect instruction] 0x%x:\t%s\t%s" % (inst.address, inst.mnemonic, inst.op_str))
              return True
-        if i.type == x86.X86_OP_MEM:
+        if i.type == bbl.BB_OP_MEM:
             '''
             for jmp base[index, scale, displacement]
             '''

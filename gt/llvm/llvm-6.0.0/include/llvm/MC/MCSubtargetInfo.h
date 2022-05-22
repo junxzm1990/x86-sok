@@ -53,6 +53,7 @@ class MCSubtargetInfo {
   FeatureBitset FeatureBits;           // Feature bits for current CPU + FS
 
   //Koo
+  mutable bool special_mode = false;
   mutable unsigned byteCtr = 0;
   mutable unsigned fixupCtr = 0;
   // inline disassembly: updated at EmitInlineAsm() in AsmPrinterInlineAsm.cpp
@@ -173,6 +174,9 @@ public:
     return 0;
   }
 
+  //ztt
+  void setSpecialMode(bool Mode) const {special_mode = Mode; }
+  bool getSpecialMode() const {return special_mode; }
   // Koo: Hold actual size of the target MCInst in bytes and its parentID (MFID_MBBID)
   void setByteCtr(unsigned Bytes) const { byteCtr = Bytes; }
   unsigned getByteCtr() const { return byteCtr; }
@@ -180,7 +184,7 @@ public:
   unsigned getFixupCtr() const { return fixupCtr; }
   void setParentID(std::string parent) const { parentID = parent; }
   std::string getParentID() const { return parentID; }
-  
+
   /// getInstrItineraryForCPU - Get scheduling itinerary of a CPU.
   ///
   InstrItineraryData getInstrItineraryForCPU(StringRef CPU) const;

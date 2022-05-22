@@ -203,7 +203,7 @@ namespace {
       return InfosBE[Kind - FirstTargetFixupKind];
     }
     
-    unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+    unsigned getFixupKindSize(unsigned Kind) const override { return 0; } // Koo [N/A Here]
 
     bool shouldForceRelocation(const MCAssembler &Asm, const MCFixup &Fixup,
                                const MCValue &Target) override {

@@ -27,9 +27,7 @@
 #include "dwarf2dbg.h"
 #include "compress-debug.h"
 
-#if defined(__i386__) || defined(__x86_64__)
 #include "bbInfoHandle.h"
-#endif
 
 #ifndef TC_FORCE_RELOCATION
 #define TC_FORCE_RELOCATION(FIX)		\
@@ -557,7 +555,6 @@ relax_seg (bfd *abfd ATTRIBUTE_UNUSED, asection *sec, void *xxx)
  *  binpang, add.
  *  update basic block size.
  */
-#if defined(__i386__) || defined(__x86_64__)
 static void update_basic_block_size(bfd *abfd ATTRIBUTE_UNUSED, asection *sec, void *xxx ATTRIBUTE_UNUSED)
 {
   const char* sec_name = sec->name;
@@ -576,11 +573,10 @@ static void update_basic_block_size(bfd *abfd ATTRIBUTE_UNUSED, asection *sec, v
     fragP->parent = sec;
     // update the basic block size
     mbbP = fragP->last_bb;
-    
-    if (mbbP && fragP->last_bb_added_size){
+
+    if (mbbP && fragP->last_bb_added_size)
       mbbP->size += fragP->last_bb_added_size;
-    }
-    
+
    }
 }
 
@@ -628,7 +624,6 @@ static void update_basic_block_offset(void){
     cur_mbb->sec = cur_mbb->parent_frag->parent;
   }
 }
-#endif
 
 
 static void
@@ -1231,11 +1226,31 @@ fix_segment (bfd *abfd ATTRIBUTE_UNUSED,
   fixup_segment (seginfo->fix_root, sec);
 }
 
+
+
+//ztt add to fixup the jumptable
+static void
+update_added_fixup(asection *sec,bbinfo_fixup* fixp){
+	bbinfo_last_pc* tmp_fixup;
+	int offset = fixp->offset;
+
+	for(tmp_fixup = added_fixups_list_head;tmp_fixup;tmp_fixup=tmp_fixup->next)
+	{
+		int res = tmp_fixup->frag->fr_address + tmp_fixup->offset;
+		if(res == offset && strcmp(sec->name,tmp_fixup->frag->parent->name) == 0)
+		{
+			fixp->table_size = S_GET_JMPTBL_SIZE(tmp_fixup->symbol);
+			fixp->entry_size = S_GET_JMPTBL_ENTRY_SZ(tmp_fixup->symbol);
+			break;
+		}
+	}
+	return ;
+}
 /*
- * binpang, add. 
+ * binpang, add.
  * collect fixup information before fixup resolved.
  */
-static void 
+static void
 bbinfo_update_fixp (bfd *abfd ATTRIBUTE_UNUSED,
     	     asection *sec,
 	     void *xxx ATTRIBUTE_UNUSED)
@@ -1248,7 +1263,7 @@ bbinfo_update_fixp (bfd *abfd ATTRIBUTE_UNUSED,
     return;
 
   char is_new_sec = bbinfo_is_collect_sec(sec);
-  
+
   // we only collect .text, .rodata, .init_array, .data, .data.rel.ro sections
   if (!is_new_sec)
     return;
@@ -1258,9 +1273,10 @@ bbinfo_update_fixp (bfd *abfd ATTRIBUTE_UNUSED,
   * which is stored in reloc_list.
   *  may refer to what write_relocs fucntion does
   */
+
   for(fixp = seginfo->fix_root; fixp; fixp = fixp->fx_next)
   {
-    int offset = fixp->fx_frag->fr_address + fixp->fx_where; 
+    int offset = fixp->fx_frag->fr_address + fixp->fx_where;
    // bbinfo_fixup* tmp_fixp = bbinfo_init_fixup(fixups_list_head, fixups_list_tail);
     bbinfo_fixup* tmp_fixp = bbinfo_init_insert_fixup(sec, offset);
     tmp_fixp->sec = sec;
@@ -1272,11 +1288,41 @@ bbinfo_update_fixp (bfd *abfd ATTRIBUTE_UNUSED,
     if(tmp_sym){
       tmp_fixp->table_size = S_GET_JMPTBL_SIZE(tmp_sym);
       tmp_fixp->entry_size = S_GET_JMPTBL_ENTRY_SZ(tmp_sym);
+	//   if (tmp_fixp->table_size > 0) {
+	// 	  as_warn("current symbol is %s, size is %d", S_GET_NAME(tmp_sym), tmp_fixp->table_size);
+	//   }
     }
+
     tmp_fixp->is_new_section = 0;
+	update_added_fixup(sec,tmp_fixp);
   }
 
+  bbinfo_last_pc* tmp_added_fixup;
+
+  for(tmp_added_fixup = added_fixups_list_head;tmp_added_fixup;tmp_added_fixup=tmp_added_fixup->next)
+  {
+	if(tmp_added_fixup->offset == -3 || strcmp(sec->name, tmp_added_fixup->frag->parent->name))
+		continue;
+	int offset = tmp_added_fixup->frag->fr_address + tmp_added_fixup->offset;
+	bbinfo_fixup* tmp_fixp = bbinfo_init_insert_fixup(sec, offset);
+	tmp_fixp->sec = sec;
+    tmp_fixp->offset = offset;
+    tmp_fixp->is_rela = 1;
+    tmp_fixp->size = tmp_added_fixup->size;
+    // FIXME. Here I only consider fixp->fx_addsy
+    symbolS* tmp_sym = tmp_added_fixup->symbol;
+    if(tmp_sym){
+      tmp_fixp->table_size = S_GET_JMPTBL_SIZE(tmp_sym);
+      tmp_fixp->entry_size = S_GET_JMPTBL_ENTRY_SZ(tmp_sym);
+	//   if (tmp_fixp->table_size > 0) {
+	// 	  as_warn("current symbol is %s, size is %d", S_GET_NAME(tmp_sym), tmp_fixp->table_size);
+	//   }
+    }
+  }
 }
+
+
+
 static void
 install_reloc (asection *sec, arelent *reloc, fragS *fragp,
 	       const char *file, unsigned int line)
@@ -2055,16 +2101,14 @@ write_object_file (void)
       bfd_map_over_sections (stdoutput, relax_seg, &rsi);
       rsi.pass++;
       if (!rsi.changed)
-	break;
+		break;
     }
 
 // binpang, add 
 // update basic block size and offset
-#if defined(__i386__) || defined(__x86_64__)
   bfd_map_over_sections (stdoutput, update_basic_block_size, (void*)0);
   update_basic_block_offset();
   //bfd_map_over_sections (stdoutput, update_basic_block_size_from_frag, (void*)0);
-#endif
 
   /* Note - Most ports will use the default value of
      TC_FINALIZE_SYMS_BEFORE_SIZE_SEG, which 1.  This will force
@@ -2190,11 +2234,14 @@ write_object_file (void)
   }
 #endif /* not WORKING_DOT_WORD  */
 
+  //ztt add fix jmptable fixup
+
   /*
    * binpang, add
    * collect all fixup
    */
   bfd_map_over_sections (stdoutput, bbinfo_update_fixp, (char *) 0);
+
 
   /* Resolve symbol values.  This needs to be done before processing
      the relocations.  */
@@ -2428,13 +2475,13 @@ write_object_file (void)
 //  int tmp_index = 0;
 //  printf("after relaxing....\n");
 //  for(bbinfo_mbb* cur_bb = mbbs_list_head; cur_bb; cur_bb = cur_bb->next)
-//    printf("basic block#%d: basic block offset %x, size %d, fall_through %d, its section name is %s\n", 
+//    printf("basic block#%d: basic block offset %x, size %d, fall_through %d, its section name is %s\n",
 //	tmp_index++, cur_bb->offset, cur_bb->size, cur_bb->fall_through, cur_bb->sec->name);
 //
 //  printf("fixup information\n");
 //  tmp_index = 0;
 //  for(bbinfo_fixup* cur_fixp = fixups_list_head; cur_fixp; cur_fixp = cur_fixp->next)
-//    printf("fixup#%d: fixup offset %x, size %d, section %s, is rela %d, table size %d, entry size %d\n ", 
+//    printf("fixup#%d: fixup offset %x, size %d, section %s, is rela %d, table size %d, entry size %d\n ",
 //	tmp_index++, cur_fixp->offset, cur_fixp->size, cur_fixp->sec->name, cur_fixp->is_rela, cur_fixp->table_size, cur_fixp->entry_size);
 //#endif
 }
@@ -2591,10 +2638,8 @@ relax_segment (struct frag *segment_frag_root, segT segment, int pass)
 // binpang add
 // use last_frag to record the last fragS
 // handle the situation that before alignment fragS
-#if defined(__i386__) || defined(__x86_64__)
 struct frag *last_frag = NULL;
 bbinfo_mbb *frag_last_bb = NULL;
-#endif
 
   /* In case md_estimate_size_before_relax() wants to make fixSs.  */
   subseg_change (segment, 0);
@@ -2610,30 +2655,34 @@ bbinfo_mbb *frag_last_bb = NULL;
       fragP->region = region;
       fragP->relax_marker = 0;
       fragP->fr_address = address;
+	  //printf("T:Now address is %llx,fr address is %llx,fx size is %lld\n",address,fragP->fr_address,fragP->fr_fix);
       address += fragP->fr_fix;
-
-// binpang, add.
-#if defined(__i386__) || defined(__x86_64__)
+      // binpang, add.
       frag_last_bb = NULL;
       // may do many times relax pass. every time reset last_bb_added_size.
       fragP->last_bb_added_size = fragP->last_bb_added_fix_size;
+	  //printf("T:2618 init size is %lld\n",fragP->last_bb_added_size);
       if (fragP->last_bb && fragP->last_bb->alignment)
-	fragP->last_bb->alignment = 0;
-#endif
+		fragP->last_bb->alignment = 0;
 
-      switch (fragP->fr_type)
+    switch (fragP->fr_type)
 	{
-	case rs_fill:
-	  {int addedBytes = fragP->fr_offset * fragP->fr_var;
+	  case rs_fill:
+	  {
+		int addedBytes = fragP->fr_offset * fragP->fr_var;
 
-#if defined(__i386__) || defined(__x86_64__) 
-	  frag_last_bb = fragP->last_bb;
-	  if (frag_last_bb){
-	    fragP->last_bb_added_size += addedBytes;
+		// binpang. add
+		frag_last_bb = fragP->last_bb;
+		if (frag_last_bb){
+			fragP->last_bb_added_size += addedBytes;
+			//printf("T:2632 now size is %lld,add is %d,address is %llx\n",fragP->last_bb_added_size,addedBytes,fragP->fr_address);
+
+		}
+	  	// end
+
+	  	address += addedBytes;
+		//printf("T:2638: find addByetes is %d\n",addedBytes);
 	  }
-#endif
-	  address += addedBytes;
-	}
 	  break;
 
 	case rs_align:
@@ -2657,10 +2706,9 @@ bbinfo_mbb *frag_last_bb = NULL;
 		offset -= (offset % fragP->fr_var);
 	      }
 	    address += offset;
-	 
+	 	//printf("T:2663 find offset is %lld\n",offset);
 // add the alignment bytes to the last basic block
 // TODO(binpang). Seperate the alignment fragment into a seperate basic block.
-#if defined(__i386__) || defined(__x86_64__)
 	    struct frag* tmp_frag = NULL;
 	      /*
 	       * FIXME. If the current frag has fix bytes, then append the alignment to the current frag.
@@ -2668,7 +2716,7 @@ bbinfo_mbb *frag_last_bb = NULL;
 	       */
 	      if(fragP && fragP->fr_fix)
 	       	tmp_frag = fragP;
-	      else 
+	      else
 			tmp_frag = last_frag;
 
 	      // make sure the tmp_frag contains basic block
@@ -2677,10 +2725,10 @@ bbinfo_mbb *frag_last_bb = NULL;
 	      {
 			tmp_frag->last_bb_added_size += offset;
 			tmp_frag->last_bb->alignment += offset;
+			//printf("T:2681 now size is %lld,add is %lld,address is %llx\n",tmp_frag->last_bb_added_size,offset,tmp_frag->fr_address);
 	        //printf("[bbInfo]: alignment add size %d, frag address %x\n", offset, fragP->fr_address);
 	      }
-	      
-#endif
+
 	    region += 1;
 	  }
 	  break;
@@ -2702,16 +2750,15 @@ bbinfo_mbb *frag_last_bb = NULL;
 
 	  int added_bytes = md_estimate_size_before_relax (fragP, segment);
 	  address += added_bytes;
-
+	  //printf("T:2707 find added_bytes %d\n",added_bytes);
 	  //binpang, add. update the last basic block's size
-#if defined(__i386__) || defined(__x86_64__)
 	  frag_last_bb = fragP->last_bb;
 	  if (frag_last_bb && added_bytes)
 	  {
 	    fragP->last_bb_added_size += added_bytes;
+		//printf("T:2712 now size is %lld,add is %d,address is %llx\n",fragP->last_bb_added_size,added_bytes,fragP->fr_address);
 	  }
-#endif
-	  
+
 	  break;
 
 #ifndef WORKING_DOT_WORD
@@ -2728,10 +2775,12 @@ bbinfo_mbb *frag_last_bb = NULL;
 
 	case rs_cfa:
 	  address += eh_frame_estimate_size_before_relax (fragP);
+	  //printf("T:2732 added %d\n",eh_frame_estimate_size_before_relax (fragP));
 	  break;
 
 	case rs_dwarf2dbg:
 	  address += dwarf2dbg_estimate_size_before_relax (fragP);
+	  //printf("T:2737 added %d\n",dwarf2dbg_estimate_size_before_relax (fragP));
 	  break;
 
 	default:
@@ -2739,10 +2788,9 @@ bbinfo_mbb *frag_last_bb = NULL;
 	  break;
 	}
 
-#if defined(__i386__) || defined(__x86_64__)
+      // binpang. add
         if (fragP->last_bb)
-	  		last_frag = fragP;
-#endif
+	    last_frag = fragP;
     }
 
   /* Do relax().  */
@@ -2803,9 +2851,8 @@ bbinfo_mbb *frag_last_bb = NULL;
 	stretched = 0;
 
 // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
-   last_frag = NULL; 
-#endif
+   last_frag = NULL;
+ // end
 
 	for (fragP = segment_frag_root; fragP; fragP = fragP->fr_next)
 	  {
@@ -2920,7 +2967,6 @@ bbinfo_mbb *frag_last_bb = NULL;
  * update the fragment's last basic block size. Similar to up.
  * TODO(binpang). maybe seperate the alignment fragment in code segment into a basic block.
 */
-#if defined(__i386__) || defined(__x86_64__)
 		  struct frag* tmp_frag = NULL;
 		  if (fragP && fragP->fr_fix)
 		    tmp_frag = fragP;
@@ -2928,15 +2974,17 @@ bbinfo_mbb *frag_last_bb = NULL;
 		  {
 		    tmp_frag = last_frag;
 		  }
-		    // tmp_frag has basic block. exclude data fragment.
+		  // tmp_frag has basic block. exclude data fragment.
 		  if (tmp_frag && tmp_frag->last_bb)
 		    {
 		      tmp_frag->last_bb_added_size += growth;
 		      tmp_frag->last_bb->alignment += growth;
+			  //printf("T:2933 now size is %lld,add is %lld,address is %llx\n",tmp_frag->last_bb_added_size,growth,tmp_frag->fr_address);
+
 		   // debug
 		   // printf("[bbInfo]: alignment add size %d, frag address is %x\n", growth, fragP->fr_address);
 		    }
-#endif
+		  // end adding.
 
 		  /* If this align happens to follow a leb128 and
 		     we have determined that the leb128 is bouncing
@@ -3086,19 +3134,18 @@ bbinfo_mbb *frag_last_bb = NULL;
 		growth = relax_frag (segment, fragP, stretch);
 #endif /* TC_GENERIC_RELAX_TABLE  */
 #endif
-		
+
 		// binpang, add
 		// update the relaxed basic block size
-#if defined(__i386__) || defined(__x86_64__)
 		frag_last_bb = fragP->last_bb;
 		if (frag_last_bb && growth)
 		{
 		  fragP->last_bb_added_size += growth;
+		  //printf("T:3095 now size is %lld,add is %lld,address is %llx\n",fragP->last_bb_added_size,growth,fragP->fr_address);
 		  // debug
 		  //printf("[bbInfo]: machine dependent add size %d, frag address is %x. Hello?\n", growth, fragP->fr_address);
 		}
              }
-#endif
 		break;
 
 	      case rs_leb128:
@@ -3139,11 +3186,9 @@ bbinfo_mbb *frag_last_bb = NULL;
 		  rs_leb128_fudge = 0;
 	      }
 
-// binpang, add
-#if defined(__i386__) || defined(__x86_64__)
+	    // binpang, add
 	    if (fragP->last_bb)
 	      last_frag = fragP;
-#endif
 
 	  }
 

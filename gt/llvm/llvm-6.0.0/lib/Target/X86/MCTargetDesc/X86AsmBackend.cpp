@@ -77,7 +77,7 @@ public:
   }
 
   // Koo: Moved to MCAsmBackend() class inside so that it can be called in MCAssembler class
-  unsigned getFixupKindLog2Size(unsigned Kind) const override {
+  unsigned getFixupKindSize(unsigned Kind) const override {
     switch (Kind) {
     default:
       llvm_unreachable("invalid fixup kind!");
@@ -111,7 +111,7 @@ public:
   void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                   const MCValue &Target, MutableArrayRef<char> Data,
                   uint64_t Value, bool IsResolved) const override {
-    unsigned Size = 1 << getFixupKindLog2Size(Fixup.getKind());
+    unsigned Size = 1 << getFixupKindSize(Fixup.getKind());
 
     assert(Fixup.getOffset() + Size <= Data.size() && "Invalid fixup offset!");
 

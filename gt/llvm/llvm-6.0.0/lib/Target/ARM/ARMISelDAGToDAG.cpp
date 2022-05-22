@@ -35,6 +35,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetOptions.h"
 
+//ztt
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "arm-isel"
@@ -63,6 +66,12 @@ public:
     // Reset the subtarget each time through.
     Subtarget = &MF.getSubtarget<ARMSubtarget>();
     SelectionDAGISel::runOnMachineFunction(MF);
+
+    // ztt add refer Koo
+    MachineJumpTableInfo *MJTI = MF.getJumpTableInfo();
+    if (MJTI)
+      MF.RecordMachineJumpTableInfo(MJTI);
+
     return true;
   }
 

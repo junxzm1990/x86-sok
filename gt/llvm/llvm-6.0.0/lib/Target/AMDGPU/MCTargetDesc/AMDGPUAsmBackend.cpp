@@ -50,7 +50,7 @@ public:
 
   const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const override;
   
-  unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+  unsigned getFixupKindSize(unsigned Kind) const override { return 0; } // Koo [N/A Here]
 };
 
 } //End anonymous namespace

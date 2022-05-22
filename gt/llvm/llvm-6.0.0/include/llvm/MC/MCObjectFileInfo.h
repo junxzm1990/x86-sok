@@ -232,8 +232,9 @@ public:
   void updateJumpTableTargets(std::string Key, unsigned EntryKind, unsigned EntrySize, \
                               std::list<std::string> JTEntries) const {
     JumpTableTargets[Key] = std::make_tuple(EntryKind, EntrySize, JTEntries);
+    //printf("Update Jumptable Successful! Key is %s \n",Key.c_str());
   }
-  
+
   unsigned getPersonalityEncoding() const { return PersonalityEncoding; }
   unsigned getLSDAEncoding() const { return LSDAEncoding; }
   unsigned getFDEEncoding() const { return FDECFIEncoding; }

@@ -14,8 +14,9 @@ import logging
 import gzip
 import shuffleInfo_pb2
 import constants as C
-from BlockUtil import *
+# from BlockUtil import *
 
+global res
 def deserializeInfo(ri):
     """ Deserialze the metadata from compiler and linker """
     def dumpFixups(F, section, fixupsBag):
@@ -58,8 +59,8 @@ def deserializeInfo(ri):
 
     dataset = dict()
     obj = ri.bin
-    #bblLayout = ri.layout
-    bblLayout = fix_1_byte_padding(ri.layout) 
+    bblLayout = ri.layout
+    #bblLayout = fix_1_byte_padding(ri.layout)
     bblLayout = fixFunctionStartInGaps(bblLayout)
     fixups = ri.fixup
     srcTypes = ri.source
@@ -100,13 +101,13 @@ def deserializeInfo(ri):
           message LayoutInfo {
             optional uint32 bb_size = 1;          // UPDATE AT LINKTIME WITH OBJ ALIGNMENTs
                                                   // All alignments between fn/bbl are included here
-            optional uint32 type = 2;             // Represents the end of [OBJ|FUN|BBL] = range(2)
+            optional uint32 type = 2;             // Represents the end of [OBJ|FUN|BBL] = range(2) with the bit(1<<6) to judge the mode
             optional uint32 num_fixups = 3;       // Number of fixups within this basic block
             optional bool bb_fallthrough = 4;     // Can this basic block be fallen through the next?
           }
         '''
         sz = bblLayout[idx].bb_size
-        type = bblLayout[idx].type
+        type = bblLayout[idx].type & (~(1<<6))
         numFixups = bblLayout[idx].num_fixups
         canFallThrough = bblLayout[idx].bb_fallthrough
         offset = bblLayout[idx].offset
@@ -261,6 +262,25 @@ def deserializeInfo(ri):
 
     return dataset
 
+'''
+def filter_invalid_bbs(layout, obj_size):
+    bblLayout = list()
+    discard_bbs = False
+    for bbl in layout:
+        if bbl.offset == 0xffffffff:
+            discard_bbs = True
+        type = bbl.type
+        if type == 1 or type == 3 or (type == 2 and bbl.assemble_type == 2):
+            discard_bbs = False
+            continue
+
+        if discard_bbs:
+            continue
+
+        bblLayout.append(bbl)
+    return bblLayout
+'''
+
 # binpang. For some special cases(we found it in mysql 5.7.27) compiled by gcc.
 # fix this bug here.
 """
@@ -329,13 +349,15 @@ def readOnly(outFile, randInfo):
                 out.write("\tFixup#%4d [%s] - Off:0x%04x, DerefSz:%d, IsRela:%s, Type: %s (@Sec %s)" % \
                       (i, sec, F[i].offset, F[i].deref_sz, isRela, ty, secName))
                 if sec == C.SEC_TEXT and JTEntries > 0:
+                    #res.append(F[i].offset + 0xccc0)
                     out.write(", [JT] %d Entries with %dB in size\n" % (JTEntries, JTEntrySz))
                 else:
                     out.write("\n")
 
     obj = randInfo.bin
-    #bblLayout = randInfo.layout
+    bblLayout = randInfo.layout
     bblLayout = fix_1_byte_padding(randInfo.layout)
+    #bblLayout = filter_invalid_bbs(bblLayout, obj.obj_sz)
     #bblLayout = fixFunctionStartInGaps(bblLayout)
     fixups = randInfo.fixup
     srcTypes = randInfo.source
@@ -347,12 +369,13 @@ def readOnly(outFile, randInfo):
     out.write("Total BBLs in .text: %d\n" % len(bblLayout))
 
     fallThroughCtr = 0
-
+    vis_offset = set()
     for idx in range(len(bblLayout)):
         sz = bblLayout[idx].bb_size
         type = C.BBL_TYPE[bblLayout[idx].type]
         numFixups = bblLayout[idx].num_fixups
         offset = bblLayout[idx].offset
+
         padding = bblLayout[idx].padding_size
         inline_asm = ""
         if bblLayout[idx].bb_fallthrough:
@@ -367,8 +390,15 @@ def readOnly(outFile, randInfo):
             inline_asm = "[handwritten]"
 
         secName = bblLayout[idx].section_name
-        out.write("\tBBL#%4d (%3dB) [%s] - Off:0x%04x, Fixups: %2d, padding: %2d, FallThrough: %s (@Sec %s) %s\n" % \
-                 (idx, sz, type, offset, numFixups, padding, canFallThrough, secName, inline_asm))
+        if(offset not in vis_offset):
+            vis_offset.add(offset)
+            out.write("\tBBL#%4d (%3dB) [%s] - Off:0x%04x, Fixups: %2d, padding: %2d, FallThrough: %s (@Sec %s) %s\n" % \
+                    (idx, sz, type, offset, numFixups, padding, canFallThrough, secName, inline_asm))
+        else:
+            out.write("\tBBL#%4d (%3dB) [%s] - Off:0x%04x, Fixups: %2d, padding: %2d, FallThrough: %s (@Sec %s) %s [DUP]\n" % \
+                    (idx, sz, type, offset, numFixups, padding, canFallThrough, secName, inline_asm))
+        # if type != "BBL":
+        #     out.write("T: Off:0x%04x\n" %(offset + 0x9220))
 
     for fi in range(len(fixups)):
         printFixups(fixups[fi].text, C.SEC_TEXT)
@@ -416,11 +446,13 @@ def read(metaData, hasRandSection):
 if __name__ == '__main__':
     def isELF(f):
         # Check if the magic number is "\x7F ELF"
-        return open(f, 'rb').read(4) == '\x7f\x45\x4c\x46'
+        # return open(f, 'rb').read(4) == '\x7f\x45\x4c\x46'
+        return open(f, 'rb').read(4) == b'\x7fELF'
     def isMetadata(f):
         return f.endswith(C.METADATA_POSTFIX)
 
     def getMetadata(param):
+        print(param)
         if isMetadata(param):
             print("Found the metadata at %s" % param)
             return param
@@ -431,6 +463,7 @@ if __name__ == '__main__':
                                C.RAND_SECTION + '=' + C.METADATA_PATH, param, '2> /dev/null']))
             return C.METADATA_PATH
 
+    res = list()
     fn = getMetadata(sys.argv[1])
     ri = shuffleInfo_pb2.ReorderInfo()
 
@@ -441,6 +474,13 @@ if __name__ == '__main__':
     elif isELF(sys.argv[1]):
         try:
             ri.ParseFromString(gzip.open(fn, "rb").read())
+            print("Found the .rand section, dumping into %s (will be removed at the end)" % C.METADATA_PATH)
+            readOnly(sys.argv[1] + C.METADATA_POSTFIX + C.METADESC_POSTFIX, ri)
+            os.remove(C.METADATA_PATH)
+        except IOError:
+            print("The ELF binary does not contain a .rand section for metadata!")
+        try:
+            ri.ParseFromString(open(fn, "rb").read())
             print("Found the .rand section, dumping into %s (will be removed at the end)" % C.METADATA_PATH)
             readOnly(sys.argv[1] + C.METADATA_POSTFIX + C.METADESC_POSTFIX, ri)
             os.remove(C.METADATA_PATH)

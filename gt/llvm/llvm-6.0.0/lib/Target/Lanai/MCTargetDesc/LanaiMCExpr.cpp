@@ -20,10 +20,10 @@ const LanaiMCExpr *LanaiMCExpr::create(VariantKind Kind, const MCExpr *Expr,
   return new (Ctx) LanaiMCExpr(Kind, Expr);
 }
 
-void LanaiMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+const MCExpr *LanaiMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   if (Kind == VK_Lanai_None) {
     Expr->print(OS, MAI);
-    return;
+    return NULL;
   }
 
   switch (Kind) {
@@ -41,6 +41,7 @@ void LanaiMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   const MCExpr *Expr = getSubExpr();
   Expr->print(OS, MAI);
   OS << ')';
+  return NULL;
 }
 
 void LanaiMCExpr::visitUsedExpr(MCStreamer &Streamer) const {

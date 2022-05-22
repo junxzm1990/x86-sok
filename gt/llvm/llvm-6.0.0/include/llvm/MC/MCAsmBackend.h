@@ -87,7 +87,7 @@ public:
   // Koo: Make the function virual for the use
   //      All backend but x86 does not employee it (or implemented locally)
   //      PPCMachO and X86MachO might rewrite the following function
-  virtual unsigned getFixupKindLog2Size(unsigned Kind) const = 0;
+  virtual unsigned getFixupKindSize(unsigned Kind) const = 0;
   
   /// @}
 

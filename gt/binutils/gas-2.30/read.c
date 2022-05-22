@@ -40,9 +40,7 @@
 #include "dw2gencfi.h"
 #include "wchar.h"
 
-#if defined(__i386__) || defined(__x86_64__)
 #include "bbInfoHandle.h" // binpang, add
-#endif
 
 #ifndef TC_START_LABEL
 #define TC_START_LABEL(STR, NUL_CHAR, NEXT_CHAR) (NEXT_CHAR == ':')
@@ -539,7 +537,7 @@ pop_insert (const pseudo_typeS *table)
 #endif
 
 // binpang, add. Handle basic block related information
-#if !defined(bbInfo_pop_insert) && (defined(__i386__) || defined (__x86_64__))
+#if !defined(bbInfo_pop_insert)
 #define bbInfo_pop_insert()    pop_insert(bbInfo_pseudo_table)
 #endif
 
@@ -567,11 +565,9 @@ pobegin (void)
   cfi_pop_insert ();
 
 // binpang, add.
-#if defined(__i386__) || defined(__x86_64__)
   /* Now bbInfo ones. */
   pop_table_name = "bbInfo";
   bbInfo_pop_insert();
-#endif
 
 }
 
@@ -762,7 +758,6 @@ in_bss (void)
 
   return (flags & SEC_ALLOC) && !(flags & (SEC_LOAD | SEC_HAS_CONTENTS));
 }
-
 /* Guts of .align directive:
    N is the power of two to which to align.  A value of zero is accepted but
     ignored: the default alignment of the section will be at least this.
@@ -1041,9 +1036,15 @@ read_a_source_file (const char *name)
 
 		  line_label = colon (s);	/* User-defined label.  */
 		  //binpang add, record the last user defined label
-#if defined(__i386__) || defined(__x86_64__)
 		  update_last_symbol(line_label);
-#endif
+
+      if (bbinfo_in_text && !in_bss()) {
+
+        // ztt add find a label and make a new bb
+        if(bbinfo_handwritten_file)
+	          new_bb_flag = 1;
+      }
+
 		  restore_line_pointer (nul_char);
 		  ++ input_line_pointer;
 #ifdef tc_check_label
@@ -1950,6 +1951,9 @@ s_data (int ignore ATTRIBUTE_UNUSED)
 {
   segT section;
   int temp;
+
+  // binpang. add.
+  bbinfo_in_text = 0;
 
   temp = get_absolute_expression ();
   if (flag_readonly_data_in_text)
@@ -3651,6 +3655,9 @@ void
 s_text (int ignore ATTRIBUTE_UNUSED)
 {
   int temp;
+
+  // binpang. add
+  bbinfo_in_text = 1;
 
   temp = get_absolute_expression ();
   subseg_set (text_section, (subsegT) temp);

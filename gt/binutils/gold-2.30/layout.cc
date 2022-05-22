@@ -2931,60 +2931,67 @@ Layout::reset_relax_output()
         std::vector<std::string> obj_names;
         std::map<std::string, input2output> obj2input_tmp;
 	      obj2input_tmp = this->get_obj2input();
-        for (Section_list::const_iterator p = this->section_list_.begin();
-             p != this->section_list_.end();
-             ++p)
+        for (Section_list::const_iterator p = this->section_list_.begin(); p != this->section_list_.end(); ++p)
+        {
+            //gold_info("\n---------------------------------\n");
+            Output_section* os = *p;
+            Output_section::Input_section_list input_section_list = os->input_sections();
+            for (Output_section::Input_section_list::const_iterator q = input_section_list.begin(); q != input_section_list.end(); q++)
             {
-                Output_section* os = *p;
-                Output_section::Input_section_list input_section_list = os->input_sections();
-                for (Output_section::Input_section_list::const_iterator q = input_section_list.begin();
-                    q != input_section_list.end(); q++) 
-                    {
-                      if (q->is_input_section() && q->relobj() && q->relobj()->is_yarp_defined_object()) 
-                    {
-                      ShuffleInfo::ReorderInfo reorder_info;
-                      section_size_type rand_sec_len;
-                      Sized_relobj_file<size, big_endian>* obj = reinterpret_cast<Sized_relobj_file<size, big_endian> *>(q->relobj());
-                      // we have handle this object, skip it.
-                      if (std::find(std::begin(obj_names), std::end(obj_names), obj->name()) != std::end(obj_names)){
-                        continue;
-                      }
-                      visit_relobj(q->relobj());
-                      const unsigned char *my_contents = obj->section_contents(obj->get_rand_shndx(".rand"), &rand_sec_len, false);
-                      std::string rand_input(reinterpret_cast<const char *>(my_contents), rand_sec_len);
-                      if(rand_sec_len > 0)
-                        {
-                    std::map<std::string, input2output>::iterator tmp_iter;
-                    tmp_iter = obj2input_tmp.find(obj->name());
-                    if (tmp_iter == obj2input_tmp.end()){
-                      gold_error(_("bbinfo: In update_shuffle_layout function, obj2input map does not have object %s"), 
-                          obj->name().c_str());
-                      continue;
-                    }
-                    reorder_info.ParseFromString(rand_input);
-                    this->add_shuffleInfo_obj(reorder_info, obj, tmp_iter->second);
-                    obj_names.push_back(obj->name());
-            #ifdef CCR_MSG_DETAILS
-                    gold_info("\t>> %s", obj->name().c_str());
-            #endif
-                                            }
-                                        }
-                                    }
-                        }
+              //gold_info("\nTTTTTTTTTT\n");
+              if (q->is_input_section() && q->relobj() && q->relobj()->is_yarp_defined_object())
+              {
+                ShuffleInfo::ReorderInfo reorder_info;
+                section_size_type rand_sec_len;
+                Sized_relobj_file<size, big_endian>* obj = reinterpret_cast<Sized_relobj_file<size, big_endian> *>(q->relobj());
+                // we have handle this object, skip it.
+                if (std::find(std::begin(obj_names), std::end(obj_names), obj->name()) != std::end(obj_names)){
+                  continue;
+                }
+                visit_relobj(q->relobj());
+                const unsigned char *my_contents = obj->section_contents(obj->get_rand_shndx(".rand"), &rand_sec_len, false);
+                //gold_info("obj_name is %s\n",obj->name().c_str());
+                std::string rand_input(reinterpret_cast<const char *>(my_contents), rand_sec_len);
+                //gold_info("rand_input suc\n");
+                if(rand_sec_len > 0)
+                {
+                  std::map<std::string, input2output>::iterator tmp_iter;
+                  tmp_iter = obj2input_tmp.find(obj->name());
+                  //gold_info("find over");
+                  if (tmp_iter == obj2input_tmp.end()){
+                    //gold_info("Not find");
+                    gold_error(_("bbinfo: In update_shuffle_layout function, obj2input map does not have object %s"),
+                        obj->name().c_str());
+
+                    continue;
+                  }
+                  reorder_info.ParseFromString(rand_input);
+                  //gold_info("Parse over!");
+                  this->add_shuffleInfo_obj(reorder_info, obj, tmp_iter->second);
+                  obj_names.push_back(obj->name());
+                  #ifdef CCR_MSG_DETAILS
+                          gold_info("\t>> %s T1", obj->name().c_str());
+                  #endif
+                }
+              }
+            }
+        }
 
             // binpang. For some reason: such as `-r` flag which output the relocatable object.
             // It will emit some object files.
             // FIXME. We assume that all relocated objects are linked into the final executable/library/object.
             std::map<Relobj*, bool>::iterator tmp_iter_obj;
             std::map<Relobj*, bool> tmp_relobj_map = get_relobj_map();
+            //gold_info("get_relobj_map suc\n");
             for(tmp_iter_obj = tmp_relobj_map.begin();
 	      tmp_iter_obj != tmp_relobj_map.end(); tmp_iter_obj++){
+            //gold_info("Now in 2\n");
 	      // have handled it
 	          if (tmp_iter_obj->second){
 		          continue;
 	          }
 	          tmp_iter_obj->second = true;
-	          Sized_relobj_file<size, big_endian>* obj2 = 
+	          Sized_relobj_file<size, big_endian>* obj2 =
 			        reinterpret_cast<Sized_relobj_file<size, big_endian> *>(tmp_iter_obj->first);
 	          section_size_type rand_sec_len2;
 	          if (obj2->get_rand_shndx(".rand") == -1){
@@ -2996,27 +3003,31 @@ Layout::reset_relax_output()
 		    std::map<std::string, input2output>::iterator tmp_iter2;
 		    tmp_iter2 = obj2input_tmp.find(obj2->name());
 		    if (tmp_iter2 == obj2input_tmp.end()){
-		      gold_error(_("bbinfo: In update_shuffle_layout function, obj2input map does not have object %s"), 
+		      gold_error(_("bbinfo: In update_shuffle_layout function, obj2input map does not have object %s"),
 		      obj2->name().c_str());
 		      continue;
 	      }
 	      ShuffleInfo::ReorderInfo reorder_info2;
 	      reorder_info2.ParseFromString(rand_input);
+
 	      this->add_shuffleInfo_obj(reorder_info2, obj2, tmp_iter2->second);
 #ifdef CCR_MSG_DETAILS
-	      gold_info("\t>> %s", obj2->name().c_str());
+	      gold_info("\t>> %s T2", obj2->name().c_str());
 #endif
 	  }
 	}
+  //gold_info("The end!\n");
 	gold_info("Update shuffleInfo Done!");
-    }
+  }
 
     // binpang, add. Add shuffle accourding to the output section
     template<int size, bool big_endian>
     void Layout::add_shuffleInfo_obj(ShuffleInfo::ReorderInfo& to_add_info,
-                                     Sized_relobj_file<size, big_endian> *pfrom_object, 
+                                     Sized_relobj_file<size, big_endian> *pfrom_object,
                                      input2output &input2output_list
                                      ){
+
+        //gold_info("Obj2 is %s\n",pfrom_object->name().c_str());
         input2output::iterator tmp_iter;
         // copy from add_shuffleInfo function
         ShuffleInfo::ReorderInfo& gsi = get_global_shuffleInfo();
@@ -3024,11 +3035,11 @@ Layout::reset_relax_output()
         ShuffleInfo::ReorderInfo_FixupInfo_FixupTuple* pfixuptuple = NULL;
         bool found_discarded_section = false;
         int i, j;
-	
+
 
         typedef typename elfcpp::Elf_types<size>::Elf_Addr Address;
         //even when section reordering is conducted, it is guaranteed we get the latest out_offset
-        const std::vector<Address>& out_offsets(pfrom_object->section_offsets());
+        const std::vector<Address>& out_offsets(pfrom_object->section_offsets_saved());
         ///update the [bin = 1]
         ShuffleInfo::ReorderInfo_BinaryInfo* pbininfo = gsi.mutable_bin();
         if(is_first_reorder_info()){
@@ -3050,7 +3061,7 @@ Layout::reset_relax_output()
         //CCR: the obj_id_map is guranteed won't contain special sections, so their size won't be counted
         // CCR: FIXED HERE (failed compilation without a local variable in gcc > 5.x)
         std::list<std::tuple<uint64_t, std::string, bool>> obj_id_map = pfrom_object->get_yarp_obj_id_map();
-        for (std::list<std::tuple<uint64_t, std::string, bool>>::iterator it = obj_id_map.begin(); 
+        for (std::list<std::tuple<uint64_t, std::string, bool>>::iterator it = obj_id_map.begin();
                 it!= obj_id_map.end(); ++it) {
             uint64_t id;
             std::string name;
@@ -3062,17 +3073,19 @@ Layout::reset_relax_output()
                 continue;
             }
 
+            //gold_info("[binpang. debug]: the name is %s\n", name.c_str());
+
             if (pfrom_object->get_text_shndx(name) == -1){
               gold_info("[bbinfo]: WARNING: The section name is not record in text_shndx_map!");
               continue;
             }
+
             text_size = pfrom_object->section_size(pfrom_object->get_text_shndx(name));
           
 #ifdef CCR_MSG_DETAILS
-            gold_info("[KOO] [%3d] %s@%s (0x%lx) on add_shuffleInfo()@layout.cc", \
-                        id, name.c_str(), pfrom_object->name().c_str(), text_size);
+            gold_info("[KOO] [%llx] %s@%s (0x%llx) on add_shuffleInfo()@layout.cc", id, name.c_str(), pfrom_object->name().c_str(), text_size);
 #endif
-        
+
           if((pbininfo->rand_obj_offset() > out_offsets[pfrom_object->get_text_shndx(name)])
               && ( text_size > 0) && (Layout::special_ordering_of_input_section(name.c_str()) < 0)) {
               pbininfo->set_rand_obj_offset(out_offsets[pfrom_object->get_text_shndx(name)]);
@@ -3088,12 +3101,15 @@ Layout::reset_relax_output()
         ///update the [layout = 2]
         uint32_t accum_removed_child_fixups = 0;
         uint32_t redundant_section_size = 0;
+        std::map<std::string, uint32_t> map_sec_ids;
 
+        // binpang. add support of duplicated text sections.
         for (i = 0; i < to_add_info.layout_size(); ++i) {
             //CCR: check if current BBL belongs to discarded section
-          if(!pfrom_object->yarp_text_section_exist(to_add_info.layout(i).section_name())) {
+          auto cur_sec_name = to_add_info.layout(i).section_name();
+          if(!pfrom_object->yarp_text_section_exist(cur_sec_name)) {
               j = i; //record current i
-              redundant_section_size += to_add_info.layout(j).bb_size(); 
+              redundant_section_size += to_add_info.layout(j).bb_size();
               accum_removed_child_fixups += to_add_info.layout(j).num_fixups();
 #ifdef CCR_MSG_DETAILS
               gold_info("[CCR] Discard %s:%s BBL#[%3d], accu redundant section size: %lx,Total removed fixups: %2d (0x%xB)",
@@ -3102,6 +3118,8 @@ Layout::reset_relax_output()
 #endif
 	      continue;
           } // binpang, add.
+
+          uint32_t cur_id = 0;
 
           if (i < to_add_info.layout_size()){
               //we gurrantte that when code reach here, we are only gonna deal with legit BBLs
@@ -3124,33 +3142,48 @@ Layout::reset_relax_output()
               playoutinfo->set_assemble_type(to_add_info.layout(i).assemble_type());
               
               // binpang, add
-	      const char* output_sec_name = NULL;
-              tmp_iter = input2output_list.find(to_add_info.layout(i).section_name());
+	            const char* output_sec_name = NULL;
+              tmp_iter = input2output_list.find(cur_sec_name);
               if (tmp_iter == input2output_list.end()){
                   gold_error(_("[bbinfo]: Bug, in add_shuffleInfo_obj function. input section %s doesn't have corrosponding output section.")
-                  ,to_add_info.layout(i).section_name().c_str());
+                  , to_add_info.layout(i).section_name().c_str());
               }else{
                   // set the section name to the corrosponding output section
                   playoutinfo->set_section_name(tmp_iter->second);
 		  output_sec_name = tmp_iter->second.c_str();
               }
-	      int offset_tmp = to_add_info.layout(i).offset() + out_offsets[pfrom_object->get_text_shndx(to_add_info.layout(i).section_name(), 0)];
 
-              playoutinfo->set_offset(offset_tmp);
-#ifdef CCR_MSG_DETAILS
-	      gold_info("[bbinfo]: update bb offset from 0x%x to 0x%x", to_add_info.layout(i).offset(), offset_tmp);
-#endif
+            if (map_sec_ids.find(cur_sec_name) != map_sec_ids.end()) {
+              cur_id = map_sec_ids[cur_sec_name];
+            }
+
+            // binpang. this is the new section start.
+            if (to_add_info.layout(i).offset() == 0) {
+              if (map_sec_ids.find(cur_sec_name) != map_sec_ids.end()) {
+                cur_id++;
+                map_sec_ids[cur_sec_name] = cur_id;
+              } else {
+                map_sec_ids[cur_sec_name] = 0;
+              }
+            }
+
+	          int offset_tmp = to_add_info.layout(i).offset() + out_offsets[pfrom_object->get_text_shndx(to_add_info.layout(i).section_name(), cur_id)];
+
+            playoutinfo->set_offset(offset_tmp);
+	          // gold_info("[bbinfo]: in object %s:%d, update bb offset from 0x%x to 0x%x", \
+			      //         pfrom_object->name().c_str(), pfrom_object->get_text_shndx(to_add_info.layout(i).section_name()), \
+			      //           to_add_info.layout(i).offset(), offset_tmp);
 
               if (to_add_info.layout(i).type() == OBJ_BBL || to_add_info.layout(i).type() == OBJ_FUNC_BBL) {
                   //if this bb is at the end of an input section in the object, add paddings
-		  // FIXME. We assume the output section name is unique
-		  Output_section* output_sec = this->get_output_section_by_name(output_sec_name);
-		  uint64_t obj_text_padding = 0;
-		  if (output_sec != NULL){
-		    obj_text_padding = output_sec->output_get_yarp_obj_text_padding_map(
-			pfrom_object->yarp_object_id(
-			  to_add_info.layout(i).section_name()));
-		  } 
+		              // FIXME. We assume the output section name is unique
+		              Output_section* output_sec = this->get_output_section_by_name(output_sec_name);
+		              uint64_t obj_text_padding = 0;
+		              if (output_sec != NULL){
+		                obj_text_padding = output_sec->output_get_yarp_obj_text_padding_map(
+			                  pfrom_object->yarp_object_id(
+			                      to_add_info.layout(i).section_name()));
+		              } 
                   playoutinfo->set_bb_size(to_add_info.layout(i).bb_size() + obj_text_padding);
                   playoutinfo->set_padding_size(to_add_info.layout(i).padding_size() + obj_text_padding);
                   accum_obj_text +=  to_add_info.layout(i).bb_size() + obj_text_padding;
@@ -3188,8 +3221,12 @@ Layout::reset_relax_output()
         // at this point, .text, .rodata, .data, .data.rel.ro, and .init_array
         // for the current object should've been decided
         std::string obj_name = pfrom_object->name();
+        //printf("obj_name is %s\n",obj_name.c_str());
         for (i = 0; i < to_add_info.fixup_size(); ++i) {
-          gold_assert(i < 1 && "[CCR-Error] shouldn't have more than one fixup_info"); 
+          //printf("T:%d\n",i);
+          if(i >= 1)
+            continue;
+          //gold_assert(i < 1 && "[CCR-Error] shouldn't have more than one fixup_info");
           const ShuffleInfo::ReorderInfo_FixupInfo& to_add_fixup_info = to_add_info.fixup(i);
 
 #ifdef CCR_MSG_DETAILS
@@ -3204,7 +3241,7 @@ Layout::reset_relax_output()
                 // do{
 #ifdef CCR_MSG_DETAILS
                   gold_info("[CCR] Discard %s Fixups[%d]", to_add_fixup_info.text(j_1).section_name().c_str(),j_1);
-#endif      
+#endif
                   continue;
                     // ++j_1; //advance j_1 to point to the first Fixups of next section
                     // if(j_1 == to_add_fixup_info.text_size()){
@@ -3571,7 +3608,7 @@ Layout::reset_relax_output()
 #ifdef CCR_MSG_DETAILS
                 gold_info("[CCR] ((order %d)Fixup in %s#%d[%s]) TY=%d, OFF:0x%x->0x%x @layout.cc", dup_section_order,
                           obj_name.substr(obj_name.find_last_of("/")+1).c_str(),
-                          pfrom_object->get_initarray_shndx(to_add_fixup_info.initarray(j_5).section_name(), dup_section_order) ,initarray_fixup_tuple.section_name().c_str(),initarray_fixup_tuple.type(), initarray_fixup_tuple.offset(), 
+                          pfrom_object->get_initarray_shndx(to_add_fixup_info.initarray(j_5).section_name(), dup_section_order) ,initarray_fixup_tuple.section_name().c_str(),initarray_fixup_tuple.type(), initarray_fixup_tuple.offset(),
                           initarray_fixup_tuple.offset()+out_offsets[pfrom_object->get_initarray_shndx(to_add_fixup_info.initarray(j_5).section_name(), dup_section_order)]);
 #endif
                 // binpang, add
@@ -7329,7 +7366,7 @@ Layout::add_to_gdb_index(bool is_type_unit,
 
 
 
-// binpang, instantitate the template function 
+// binpang, instantitate the template function
 #ifdef HAVE_TARGET_32_LITTLE
     template
     void 

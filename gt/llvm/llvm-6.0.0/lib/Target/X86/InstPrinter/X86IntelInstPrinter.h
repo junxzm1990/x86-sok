@@ -16,6 +16,8 @@
 
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/MC/MCExpr.h"
+
 
 namespace llvm {
 
@@ -42,7 +44,7 @@ public:
   void printSrcIdx(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printDstIdx(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printRoundingControl(const MCInst *MI, unsigned Op, raw_ostream &OS);
-  void printU8Imm(const MCInst *MI, unsigned Op, raw_ostream &O);
+  const MCExpr *printU8Imm(const MCInst *MI, unsigned Op, raw_ostream &O);
 
   void printanymem(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
     printMemReference(MI, OpNo, O);

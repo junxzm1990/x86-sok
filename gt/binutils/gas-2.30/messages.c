@@ -20,6 +20,8 @@
 #include "as.h"
 #include <signal.h>
 
+#include <execinfo.h>
+
 /* If the system doesn't provide strsignal, we get it defined in
    libiberty but no declaration is supplied.  Because, reasons. */
 #if !defined (HAVE_STRSIGNAL) && !defined (strsignal)
@@ -323,6 +325,23 @@ as_abort (const char *file, int line, const char *fn)
 static void
 signal_crash (int signo)
 {
+
+  void *Tbuffer[64];
+  char **Tsymbols;
+
+  int Tnum = backtrace(Tbuffer, 64);
+  printf("backtrace() returned %d addresses\n", Tnum);
+
+  Tsymbols = backtrace_symbols(Tbuffer, Tnum);
+  if (Tsymbols == NULL) {
+      perror("backtrace_symbols");
+      exit(EXIT_FAILURE);
+  }
+
+  for (int j = 0; j < Tnum; j++)
+      printf("%s\n", Tsymbols[j]);
+
+  free(Tsymbols);
   /* Reset, to prevent unbounded recursion.  */
   signal (signo, SIG_DFL);
 
@@ -335,7 +354,7 @@ void
 signal_init (void)
 {
 #ifdef SIGSEGV
-  signal (SIGSEGV, signal_crash);
+  //signal (SIGSEGV, signal_crash);
 #endif
 #ifdef SIGILL
   signal (SIGILL, signal_crash);

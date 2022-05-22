@@ -57,9 +57,7 @@ extern void gas_cgen_begin (void);
 #endif
 
 // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
 #include "bbInfoHandle.h"
-#endif
 
 /* We build a list of defsyms as we read the options, and then define
    them after we have initialized everything.  */
@@ -1259,9 +1257,7 @@ main (int argc, char ** argv)
   dwarf2_init ();
   
   // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
   bbinfo_init();
-#endif
 
   local_symbol_make (".gasversion.", absolute_section,
 		     BFD_VERSION / 10000UL, &predefined_address_frag);

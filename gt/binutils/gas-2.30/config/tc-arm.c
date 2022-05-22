@@ -40,6 +40,8 @@
 
 #include "dwarf2dbg.h"
 
+#include "bbInfoHandle.h" // ztt.add
+
 #ifdef OBJ_ELF
 /* Must be at least the size of the largest unwind opcode (currently two).  */
 #define ARM_OPCODE_CHUNK_SIZE 8
@@ -651,6 +653,7 @@ const char * const reg_expected_msgs[] =
 /* ARM instructions take 4bytes in the object file, Thumb instructions
    take 2:  */
 #define INSN_SIZE	4
+
 
 struct asm_opcode
 {
@@ -2831,6 +2834,8 @@ opcode_select (int width)
 	    as_bad (_("selected processor does not support THUMB opcodes"));
 
 	  thumb_mode = 1;
+
+
 	  /* No need to force the alignment, since we will have been
 	     coming from ARM mode, which is word-aligned.  */
 	  record_alignment (now_seg, 1);
@@ -14552,15 +14557,15 @@ neon_dp_fixup (struct arm_it* insn)
   insn->is_neon = 1;
 
   if (thumb_mode)
-    {
-      /* The U bit is at bit 24 by default. Move to bit 28 in Thumb mode.  */
-      if (i & (1 << 24))
-	i |= 1 << 28;
+  {
+    /* The U bit is at bit 24 by default. Move to bit 28 in Thumb mode.  */
+    if (i & (1 << 24))
+      i |= 1 << 28;
 
-      i &= ~(1 << 24);
+    i &= ~(1 << 24);
 
-      i |= 0xef000000;
-    }
+    i |= 0xef000000;
+  }
   else
     i |= 0xf2000000;
 
@@ -17850,38 +17855,50 @@ fix_new_arm (fragS *	   frag,
     {
     case O_constant:
       if (pc_rel)
-	{
-	  /* Create an absolute valued symbol, so we have something to
-	     refer to in the object file.  Unfortunately for us, gas's
-	     generic expression parsing will already have folded out
-	     any use of .set foo/.type foo %function that may have
-	     been used to set type information of the target location,
-	     that's being specified symbolically.  We have to presume
-	     the user knows what they are doing.  */
-	  char name[16 + 8];
-	  symbolS *symbol;
+      {
+        /* Create an absolute valued symbol, so we have something to
+          refer to in the object file.  Unfortunately for us, gas's
+          generic expression parsing will already have folded out
+          any use of .set foo/.type foo %function that may have
+          been used to set type information of the target location,
+          that's being specified symbolically.  We have to presume
+          the user knows what they are doing.  */
+        char name[16 + 8];
+        symbolS *symbol;
 
-	  sprintf (name, "*ABS*0x%lx", (unsigned long)exp->X_add_number);
+        sprintf (name, "*ABS*0x%lx", (unsigned long)exp->X_add_number);
 
-	  symbol = symbol_find_or_make (name);
-	  S_SET_SEGMENT (symbol, absolute_section);
-	  symbol_set_frag (symbol, &zero_address_frag);
-	  S_SET_VALUE (symbol, exp->X_add_number);
-	  exp->X_op = O_symbol;
-	  exp->X_add_symbol = symbol;
-	  exp->X_add_number = 0;
-	}
+        symbol = symbol_find_or_make (name);
+        S_SET_SEGMENT (symbol, absolute_section);
+        symbol_set_frag (symbol, &zero_address_frag);
+        S_SET_VALUE (symbol, exp->X_add_number);
+        exp->X_op = O_symbol;
+        exp->X_add_symbol = symbol;
+        exp->X_add_number = 0;
+      }
       /* FALLTHROUGH */
     case O_symbol:
     case O_add:
     case O_subtract:
       new_fix = fix_new_exp (frag, where, size, exp, pc_rel,
 			     (enum bfd_reloc_code_real) reloc);
+      // ztt, add
+      if (mbbs_list_tail)
+      {
+        mbbs_list_tail->num_fixs++;
+        printf("T:17889:find fixup %d, id is %d\n",mbbs_list_tail->num_fixs,mbbs_list_tail->ID);
+      }
       break;
 
     default:
       new_fix = (fixS *) fix_new (frag, where, size, make_expr_symbol (exp), 0,
 				  pc_rel, (enum bfd_reloc_code_real) reloc);
+      // ztt, add
+      if (mbbs_list_tail)
+      {
+        mbbs_list_tail->num_fixs++;
+        printf("T:17889:find fixup %d, id is %d\n",mbbs_list_tail->num_fixs,mbbs_list_tail->ID);
+      }
       break;
     }
 
@@ -17919,6 +17936,14 @@ output_relax_insn (void)
   }
   to = frag_var (rs_machine_dependent, INSN_SIZE, THUMB_SIZE,
 		 inst.relax, sym, offset, NULL/*offset, opcode*/);
+    // binpang. add.
+  // sometimes, frag_var may new two fragments.
+  while(saved_frag && saved_frag != frag_now) {
+    // as_warn("HELLO, saved_frag is %p, mbbs tail is 0x%x", saved_frag, mbbs_list_tail->ID);
+    saved_frag->last_bb = mbbs_list_tail;
+    saved_frag = saved_frag->fr_next;
+  }
+
   md_number_to_chars (to, inst.instruction, THUMB_SIZE);
 }
 
@@ -17930,9 +17955,172 @@ put_thumb32_insn (char * buf, unsigned long insn)
   md_number_to_chars (buf + THUMB_SIZE, insn, THUMB_SIZE);
 }
 
+//ztt add to judge is now insn is b / bx
+static char
+bb_end_with_jmp(const char *str);
+
+
+static void
+bb_update_size()
+{
+ /*
+  if (mbbs_list_tail) {
+    int res = 0;
+    if (thumb_mode && (inst.size > THUMB_SIZE))
+      res = inst.size;
+    else if(thumb_mode)
+      res = THUMB_SIZE;
+    else if(inst.size > INSN_SIZE)
+      res = inst.size;
+    else
+      res = INSN_SIZE;
+    mbbs_list_tail->size += res;
+    //printf("size is %d, add size is %d\n",mbbs_list_tail->size,res);
+  }
+
+  if (bbinfo_handwritten_file) {
+    int res = 0;
+    if (thumb_mode && (inst.size > THUMB_SIZE))
+      res = inst.size;
+    else if(thumb_mode)
+      res = THUMB_SIZE;
+    else if(inst.size > INSN_SIZE)
+      res = inst.size;
+    else
+      res = INSN_SIZE;
+    printf("T:in hw add size is %d\n",res);
+    bbinfo_last_inst_size = res;
+  }*/
+
+  if (mbbs_list_tail)
+  {
+    mbbs_list_tail->size += inst.size;
+  }
+  /*
+  if (bbinfo_handwritten_file)
+  {
+    bbinfo_last_inst_size = inst.size;
+  }*/
+  return ;
+}
 static void
 output_inst (const char * str)
 {
+
+// ztt. add
+
+  bb_end_with_jmp(str);
+  fragS *insn_start_frag;
+  offsetT insn_start_off;
+
+  insn_start_frag = frag_now;
+  insn_start_off = frag_now_fix();
+
+  insn_start_frag->last_bb = mbbs_list_tail;
+  if (mbbs_list_tail && mbbs_list_tail->is_begin) {
+    mbbs_list_tail->is_begin = 0;
+    mbbs_list_tail->offset = insn_start_off;
+    mbbs_list_tail->parent_frag = insn_start_frag;
+    new_bb_flag = 0;
+
+    if(thumb_mode)
+      mbbs_list_tail->type |= (1<<6);
+    else
+      mbbs_list_tail->type &= ~((1<<6));
+
+    if (bbinfo_app) {
+      mbbs_list_tail->is_inline = 1;
+    }
+  }
+
+  if (bbinfo_handwritten_file) {
+    if (!mbbs_list_tail) {
+      bbinfo_initbb_handwritten();
+      new_bb_flag = 0;
+      mbbs_list_tail->is_begin = 0;
+      mbbs_list_tail->offset = insn_start_off;
+      mbbs_list_tail->parent_frag = insn_start_frag;
+
+      if(thumb_mode)
+        mbbs_list_tail->type |= (1<<6);
+      else
+        mbbs_list_tail->type &= ~(1<<6);
+
+      bbinfo_last_frag = insn_start_frag;
+
+      insn_start_frag->last_bb = mbbs_list_tail;
+    }
+    else if(new_bb_flag == 1)
+    {
+        bbinfo_initbb_handwritten();
+
+	      new_bb_flag = 0;
+        mbbs_list_tail->is_begin = 0;
+        mbbs_list_tail->offset = insn_start_off;
+        mbbs_list_tail->parent_frag = insn_start_frag;
+
+        if(thumb_mode)
+          mbbs_list_tail->type |= (1<<6);
+        else
+          mbbs_list_tail->type &= ~(1<<6);
+
+        bbinfo_last_frag = insn_start_frag;
+
+        insn_start_frag->last_bb = mbbs_list_tail;
+        frag_now->last_bb = mbbs_list_tail;
+    }
+    // create a new `fake` basic block
+    /* // binpang. comment it now. Because we have realible ways to get basic blocks.
+    else if (bbinfo_last_frag != insn_start_frag ||
+            (bbinfo_last_inst_offset + bbinfo_last_inst_size) != insn_start_off) {
+              printf("T:offset is %d\n last inst size is %d\n start off is %lld and expect is %d\n",bbinfo_last_inst_offset,bbinfo_last_inst_size,insn_start_off,bbinfo_last_inst_offset+bbinfo_last_inst_size);
+              bbinfo_initbb_handwritten();
+              mbbs_list_tail->is_begin = 0;
+              mbbs_list_tail->offset = insn_start_off;
+              mbbs_list_tail->parent_frag = insn_start_frag;
+
+              if(thumb_mode)
+                mbbs_list_tail->type |= (1<<6);
+              else
+                mbbs_list_tail->type &= ~(1<<6);
+
+              insn_start_frag->last_bb = mbbs_list_tail;
+              bbinfo_last_frag = insn_start_frag;
+      }*/
+      bbinfo_last_inst_offset = insn_start_off;
+  }
+
+  frag_now->last_bb = mbbs_list_tail;
+
+
+  //ztt.add start a new bb when meet b,bx and label
+
+  if(bbinfo_handwritten_file && bb_end_with_jmp(str) == 1)
+    	new_bb_flag = 1;
+
+  if(inst.operands[0].isreg && inst.operands[0].reg == REG_PC)
+  {
+    printf("T:Find PC instruction!\n");
+    if(!last_pc)
+      last_pc = bbinfo_init_last_pc(frag_now,insn_start_off);
+    else
+    {
+      last_pc->frag = frag_now;
+      last_pc->offset = insn_start_off;
+      last_pc->size = inst.size;
+    }
+  }
+  if(inst.reloc.exp.X_add_symbol && S_GET_NAME (inst.reloc.exp.X_add_symbol)[0] == '.' && S_GET_NAME (inst.reloc.exp.X_add_symbol)[1] == 'L')
+  {
+    bbinfo_symbol_list* sym_now = bbinfo_init_symbol_list();
+    sym_now->symbol_name = S_GET_NAME(inst.reloc.exp.X_add_symbol);
+    #ifdef BBINFO_DEBUG_MSG
+      printf("T:Find Symbol is %s\n",sym_now->symbol_name);
+    #endif
+
+  }
+  // ztt. end
+
   char * to = NULL;
 
   if (inst.error)
@@ -17943,10 +18131,19 @@ output_inst (const char * str)
   if (inst.relax)
     {
       output_relax_insn ();
+      //bb_end_with_jmp(str);
+      bb_update_size();
+
+      //ztt add  relax must be relocation, so is fixup
+      mbbs_list_tail->num_fixs++;
+      printf("T:18106:find fixup %d, id is %d\n",mbbs_list_tail->num_fixs,mbbs_list_tail->ID);
       return;
     }
   if (inst.size == 0)
     return;
+
+  //ztt add to update the bb size
+  bb_update_size();
 
   to = frag_more (inst.size);
   /* PR 9814: Record the thumb mode into the current frag so that we know
@@ -18240,6 +18437,32 @@ opcode_lookup (char **str)
     }
 
   return NULL;
+}
+
+//ztt. add to judge the instruction b and bx
+static char
+bb_end_with_jmp(const char *str)
+{
+  char *p = str;
+  char result = 0;
+  const struct asm_opcode * opcode;
+  opcode = opcode_lookup (&p);
+
+  #ifdef BBINFO_DEBUG_MSG
+    printf("T:Now template name is %s\n",opcode->template_name);
+  #endif
+
+  if(!strcmp(opcode->template_name,"b"))
+  {
+    result = 1;
+    return result;
+  }
+  if(!strcmp(opcode->template_name,"bx"))
+  {
+    result = 1;
+    return result;
+  }
+  return result;
 }
 
 /* This function generates an initial IT instruction, leaving its block
@@ -21739,9 +21962,14 @@ md_convert_frag (bfd *abfd, segT asec ATTRIBUTE_UNUSED, fragS *fragp)
     }
   fixp = fix_new_exp (fragp, fragp->fr_fix, fragp->fr_var, &exp, pc_rel,
 		      (enum bfd_reloc_code_real) reloc_type);
+
+
   fixp->fx_file = fragp->fr_file;
   fixp->fx_line = fragp->fr_line;
   fragp->fr_fix += fragp->fr_var;
+
+  // ztt, add record the fragment size added
+  fragp->last_bb_added_fix_size += fragp->fr_var;
 
   /* Set whether we use thumb-2 ISA based on final relaxation results.  */
   if (thumb_mode && fragp->fr_var == 4 && no_cpu_selected ()
@@ -22149,6 +22377,9 @@ arm_handle_align (fragS * fragP)
     }
 
   fragP->fr_fix += fix;
+
+  // ztt. add
+  fragP->last_bb_added_fix_size += fix;
 }
 
 /* Called from md_do_align.  Used to create an alignment
@@ -22193,6 +22424,7 @@ arm_init_frag (fragS * fragP, int max_chars ATTRIBUTE_UNUSED)
 {
   /* Record whether this frag is in an ARM or a THUMB area.  */
   fragP->tc_frag_data.thumb_mode = thumb_mode | MODE_RECORDED;
+
 }
 
 #else /* OBJ_ELF is defined.  */
@@ -24875,6 +25107,12 @@ cons_fix_new_arm (fragS *	frag,
 #endif
 
   fix_new_exp (frag, where, size, exp, pcrel, reloc);
+  /*
+  if(frag->last_bb){
+    //ztt add
+    //frag->last_bb->num_fixs++;
+    //printf("T:25091:find fixup %d, id is %d\n",frag->last_bb->num_fixs,frag->last_bb->ID);
+  }*/
 }
 
 #if defined (OBJ_COFF)

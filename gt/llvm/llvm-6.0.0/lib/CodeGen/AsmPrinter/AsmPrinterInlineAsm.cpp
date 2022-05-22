@@ -542,12 +542,13 @@ void AsmPrinter::EmitInlineAsm(const MachineInstr *MI) const {
 
   EmitInlineAsm(OS.str(), getSubtargetInfo(), MCOptions, parentID, LocMD,
                 MI->getInlineAsmDialect());
-
+  // not here
+  //ztt add the special mode judge
   MAI->updateByteCounter(parentID, getSubtargetInfo().getByteCtr(), /*numFixups=*/ 0, \
-                          /*isAlign=*/ false, /*isInline=*/ true);
-  
+                          /*isAlign=*/ false, /*isInline=*/ true,/*isSpecialMode=*/ getSubtargetInfo().getSpecialMode());
+
   // binpang, add
-  MAI->updateInlineAssembleType(parentID, 1); // update the basic block type with inline assemble type 
+  MAI->updateInlineAssembleType(parentID, 1); // update the basic block type with inline assemble type
 
   // Koo [Note] Simple hack: both MF and MAI can be accessible, thus update fallThrough here.
   if (MAI->canMBBFallThrough.count(parentID) == 0)

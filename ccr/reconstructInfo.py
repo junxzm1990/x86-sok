@@ -14,6 +14,7 @@ import logging
 import gzip
 import shuffleInfo_pb2
 import constants as C
+import bbinfoconfig as bbl
 from BlockUtil import *
 
 def deserializeInfo(ri, binary):
@@ -58,8 +59,10 @@ def deserializeInfo(ri, binary):
 
     dataset = dict()
     obj = ri.bin
-    bblLayout = fixOneBytePadding(ri.layout)
-    bblLayout = fixFunctionStartInGaps(bblLayout, binary)
+    bblLayout = ri.layout
+    if bbl.BINARY_ARCH == "x86" or bbl.BINARY_ARCH == "x64":
+        bblLayout = fixOneBytePadding(ri.layout)
+        bblLayout = fixFunctionStartInGaps(bblLayout, binary)
     fixups = ri.fixup
     srcTypes = ri.source
 
@@ -72,6 +75,10 @@ def deserializeInfo(ri, binary):
     bbl_offset = [] # store basic block offset from its section
     bbl_section_name = [] # store its section
     bbl_padding = [] # basic block padding size
+
+    # ztt, add
+    bbl_type = []
+
     func_offset = []
     func_section_name = []
     func_type = [] # store the function type. 0 represents that normal function
@@ -105,13 +112,14 @@ def deserializeInfo(ri, binary):
           }
         '''
         sz = bblLayout[idx].bb_size
-        type = bblLayout[idx].type
+        type = bblLayout[idx].type & 3
         numFixups = bblLayout[idx].num_fixups
         canFallThrough = bblLayout[idx].bb_fallthrough
         offset = bblLayout[idx].offset
         sec_name = bblLayout[idx].section_name
         padding = bblLayout[idx].padding_size
         inline_type = bblLayout[idx].assemble_type
+        bbltype = bblLayout[idx].type
 
         bbl_sz.append(sz)
 
@@ -119,6 +127,7 @@ def deserializeInfo(ri, binary):
         bbl_section_name.append(sec_name)
         bbl_padding.append(padding)
         bbl_inline.append(inline_type)
+        bbl_type.append(bbltype)
 
         fsz += sz
         osz += sz
@@ -164,7 +173,7 @@ def deserializeInfo(ri, binary):
     # [FIXME] Ugly, but just a workaround
     # Function information is somehow disappeared from LTO...
     # In case of LTO, objLayout and obj_sz need to be adjusted
-    if len([bblLayout[x].type for x in range(len(bblLayout)) if bblLayout[x].type == 1 or bblLayout[x].type == 3]) == 0:
+    if len([bblLayout[x].type for x in range(len(bblLayout)) if (bblLayout[x].type & 3) == 1 or (bblLayout[x].type & 3) == 3]) == 0:
         assert (len(objLayout) == len(obj_sz))
         idxes = list()
         for i in range(len(objLayout)):
@@ -212,6 +221,7 @@ def deserializeInfo(ri, binary):
     dataset['bb_section'] = bbl_section_name
     dataset['bb_padding'] = bbl_padding
     dataset['bb_assemble'] = bbl_inline
+    dataset['bb_type'] = bbl_type
     dataset['func_offset'] = func_offset
     dataset['func_section'] = func_section_name
     dataset['func_type'] = func_type
@@ -257,7 +267,6 @@ def deserializeInfo(ri, binary):
 
     logging.info('\tNumber of Jump Tables : %d' %
                  len(list(filter(lambda x: x!=0, dataset['fixup_num_jt_entries']))))
-
     return dataset
 
 def readOnly(outFile, randInfo):
@@ -269,7 +278,7 @@ def readOnly(outFile, randInfo):
                 ty = C.FIXUP_TYPE[F[i].type]
                 secName = F[i].section_name
                 JTEntries, JTEntrySz = F[i].num_jt_entries, F[i].jt_entry_sz
-                out.write("\tFixup#%4d [%s] - Off:0x%04x, DerefSz:%d, IsRela:%s, Type: %s (@Sec %s)" % \
+                out.write("\tFixup#%4d [%s] - Off:0x%04x,  DerefSz:%d, IsRela:%s, Type: %s (@Sec %s)" % \
                       (i, sec, F[i].offset, F[i].deref_sz, isRela, ty, secName))
                 if sec == C.SEC_TEXT and JTEntries > 0:
                     out.write(", [JT] %d Entries with %dB in size\n" % (JTEntries, JTEntrySz))
@@ -295,6 +304,7 @@ def readOnly(outFile, randInfo):
         numFixups = bblLayout[idx].num_fixups
         offset = bblLayout[idx].offset
         padding = bblLayout[idx].padding_size
+        flag = bblLayout[idx].flag
         inline_asm = ""
         if bblLayout[idx].bb_fallthrough:
             canFallThrough = "Y"
@@ -308,8 +318,13 @@ def readOnly(outFile, randInfo):
             inline_asm = "[handwritten]"
 
         secName = bblLayout[idx].section_name
-        out.write("\tBBL#%4d (%3dB) [%s] - Off:0x%04x, Fixups: %2d, padding: %2d, FallThrough: %s (@Sec %s) %s\n" % \
+        out.write("\tBBL#%4d (%3dB) [%s] - Off:0x%04x, Fixups: %2d, padding: %2d, FallThrough: %s (@Sec %s) %s" % \
                  (idx, sz, type, offset, numFixups, padding, canFallThrough, secName, inline_asm))
+        if not flag:
+            out.write(" Not Terminator\n")
+        else:
+            out.write("\n")
+
 
     for fi in range(len(fixups)):
         printFixups(fixups[fi].text, C.SEC_TEXT)
@@ -345,7 +360,8 @@ def read(metaData, hasRandSection, binary):
     :return:
     """
     randInfo = readRawBufferInfo(metaData, hasRandSection)
-    return deserializeInfo(randInfo, binary)
+    tmp = deserializeInfo(randInfo, binary)
+    return tmp
 
 def readRawBufferInfo(metaData, hasRandSection):
     randInfo = shuffleInfo_pb2.ReorderInfo()

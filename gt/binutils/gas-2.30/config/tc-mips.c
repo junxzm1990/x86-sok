@@ -32,6 +32,8 @@
 #include "dwarf2dbg.h"
 #include "dw2gencfi.h"
 
+#include "bbInfoHandle.h"
+
 /* Check assumptions made in this file.  */
 typedef char static_assert1[sizeof (offsetT) < 8 ? -1 : 1];
 typedef char static_assert2[sizeof (valueT) < 8 ? -1 : 1];
@@ -2371,10 +2373,105 @@ move_insn (struct mips_cl_insn *insn, fragS *frag, long where)
   for (i = 0; i < ARRAY_SIZE (insn->fixp); i++)
     if (insn->fixp[i] != NULL)
       {
-	insn->fixp[i]->fx_frag = frag;
-	insn->fixp[i]->fx_where = where;
+        insn->fixp[i]->fx_frag = frag;
+        insn->fixp[i]->fx_where = where;
       }
   install_insn (insn);
+}
+
+static inline bfd_boolean
+jmp_reloc_p (bfd_reloc_code_real_type reloc)
+{
+  return reloc == BFD_RELOC_MIPS_JMP || reloc == BFD_RELOC_MICROMIPS_JMP;
+}
+
+// if the instruction is jump instruction.
+static inline bfd_boolean
+is_jump_instr (struct mips_cl_insn *insn)
+{
+  size_t i;
+  for (i = 0; i < ARRAY_SIZE (insn->fixp); i++)
+    if (insn->fixp[i] != NULL)
+    {
+	    if (jmp_reloc_p(insn->fixp[i]->fx_r_type)) {
+        return 1;
+      }
+    }
+  return 0;
+}
+
+static inline size_t
+get_fixup_num (struct mips_cl_insn *insn) {
+  int i;
+  size_t num = 0;
+  for (i = 0; i < ARRAY_SIZE (insn->fixp); i++)
+  {
+    if (insn->fixp[i] != NULL){
+      num += 1;
+    }
+  }
+  return num;
+}
+
+void appended_instrs_in_mbbs(struct mips_cl_insn *insn) {
+  fragS *insn_start_frag;
+  offsetT insn_start_off;
+
+  insn_start_frag = frag_now;
+  insn_start_off = frag_now_fix() - insn_length(insn);
+
+  insn_start_frag->last_bb = mbbs_list_tail;
+
+  if (mbbs_list_tail && mbbs_list_tail->is_begin) {
+    mbbs_list_tail->is_begin = 0;
+    mbbs_list_tail->offset = insn_start_off;
+    mbbs_list_tail->parent_frag = insn_start_frag;
+
+    new_bb_flag = 0;
+
+    if (bbinfo_app) {
+      mbbs_list_tail->is_inline = 1;
+    }
+  }
+
+  if (bbinfo_handwritten_file) {
+    if (!mbbs_list_tail) {
+      bbinfo_initbb_handwritten();
+      new_bb_flag = 0;
+      mbbs_list_tail->is_begin = 0;
+      mbbs_list_tail->offset = insn_start_off;
+      mbbs_list_tail->parent_frag = insn_start_frag;
+
+      bbinfo_last_frag = insn_start_frag;
+
+      insn_start_frag->last_bb = mbbs_list_tail;
+    } else if (new_bb_flag == 1) {
+      bbinfo_initbb_handwritten();
+
+      new_bb_flag = 0;
+      mbbs_list_tail->is_begin = 0;
+      mbbs_list_tail->offset = insn_start_off;
+      mbbs_list_tail->parent_frag = insn_start_frag;
+
+      bbinfo_last_frag = insn_start_frag;
+
+      insn_start_frag->last_bb = mbbs_list_tail;
+      frag_now->last_bb = mbbs_list_tail;
+    }
+    bbinfo_last_inst_offset = insn_start_off;
+
+  }
+
+  frag_now->last_bb = mbbs_list_tail;
+
+  if (bbinfo_handwritten_file && is_jump_instr(insn))
+    new_bb_flag = 1;
+
+  if (mbbs_list_tail) {
+    mbbs_list_tail->size += insn_length(insn);
+    // mbbs_list_tail->num_fixs += get_fixup_num(insn);
+    //ztt fix this place fixup maybe not deal over
+  }
 }
 
 /* Add INSN to the end of the output.  */
@@ -2383,7 +2480,12 @@ static void
 add_fixed_insn (struct mips_cl_insn *insn)
 {
   char *f = frag_more (insn_length (insn));
+
+
   move_insn (insn, frag_now, f - frag_now->fr_literal);
+
+  // binpang. add. update the size of instruction
+  appended_instrs_in_mbbs(insn);
 }
 
 /* Start a variant frag and move INSN to the start of the variant part,
@@ -2394,10 +2496,15 @@ add_relaxed_insn (struct mips_cl_insn *insn, int max_chars, int var,
 		  relax_substateT subtype, symbolS *symbol, offsetT offset)
 {
   frag_grow (max_chars);
+
+  // binpang. add. update the size of instruction
+
   move_insn (insn, frag_now, frag_more (0) - frag_now->fr_literal);
   insn->fixed_p = 1;
   frag_var (rs_machine_dependent, max_chars, var,
 	    subtype, symbol, offset, NULL);
+
+  appended_instrs_in_mbbs(insn);
 }
 
 /* Insert N copies of INSN into the history buffer, starting at
@@ -4205,11 +4312,6 @@ micromips_reloc_p (bfd_reloc_code_real_type reloc)
     }
 }
 
-static inline bfd_boolean
-jmp_reloc_p (bfd_reloc_code_real_type reloc)
-{
-  return reloc == BFD_RELOC_MIPS_JMP || reloc == BFD_RELOC_MICROMIPS_JMP;
-}
 
 static inline bfd_boolean
 b_reloc_p (bfd_reloc_code_real_type reloc)
@@ -7227,6 +7329,7 @@ calculate_reloc (bfd_reloc_code_real_type reloc, offsetT operand,
    RELOC_TYPE.  EXPANSIONP is true if the instruction is part of
    a macro expansion.  */
 
+// binpang. update the offset of instruction here.
 static void
 append_insn (struct mips_cl_insn *ip, expressionS *address_expr,
 	     bfd_reloc_code_real_type *reloc_type, bfd_boolean expansionp)
@@ -7449,6 +7552,9 @@ append_insn (struct mips_cl_insn *ip, expressionS *address_expr,
   branch_disp = method == APPEND_SWAP ? insn_length (history) : 0;
 
   dwarf2_emit_insn (0);
+
+  // binpang. here. add instructions.
+
   /* We want MIPS16 and microMIPS debug info to use ISA-encoded addresses,
      so "move" the instruction address accordingly.
 
@@ -7581,46 +7687,46 @@ append_insn (struct mips_cl_insn *ip, expressionS *address_expr,
       if (!delayed_branch_p (ip))
 	/* Make sure there is enough room to swap this instruction with
 	   a following jump instruction.  */
-	frag_grow (6);
+	    frag_grow (6);
       add_fixed_insn (ip);
     }
   else
     {
-      if (mips_opts.mips16
+    if (mips_opts.mips16
 	  && mips_opts.noreorder
 	  && delayed_branch_p (&history[0]))
-	as_warn (_("extended instruction in delay slot"));
+	  as_warn (_("extended instruction in delay slot"));
 
-      if (mips_relax.sequence)
-	{
-	  /* If we've reached the end of this frag, turn it into a variant
-	     frag and record the information for the instructions we've
-	     written so far.  */
-	  if (frag_room () < 4)
-	    relax_close_frag ();
-	  mips_relax.sizes[mips_relax.sequence - 1] += insn_length (ip);
-	}
+    if (mips_relax.sequence)
+    {
+      /* If we've reached the end of this frag, turn it into a variant
+        frag and record the information for the instructions we've
+        written so far.  */
+      if (frag_room () < 4)
+        relax_close_frag ();
+      mips_relax.sizes[mips_relax.sequence - 1] += insn_length (ip);
+    }
 
-      if (mips_relax.sequence != 2)
-	{
-	  if (mips_macro_warning.first_insn_sizes[0] == 0)
-	    mips_macro_warning.first_insn_sizes[0] = insn_length (ip);
-	  mips_macro_warning.sizes[0] += insn_length (ip);
-	  mips_macro_warning.insns[0]++;
-	}
-      if (mips_relax.sequence != 1)
-	{
-	  if (mips_macro_warning.first_insn_sizes[1] == 0)
-	    mips_macro_warning.first_insn_sizes[1] = insn_length (ip);
-	  mips_macro_warning.sizes[1] += insn_length (ip);
-	  mips_macro_warning.insns[1]++;
-	}
+    if (mips_relax.sequence != 2)
+    {
+      if (mips_macro_warning.first_insn_sizes[0] == 0)
+        mips_macro_warning.first_insn_sizes[0] = insn_length (ip);
+      mips_macro_warning.sizes[0] += insn_length (ip);
+      mips_macro_warning.insns[0]++;
+    }
+    if (mips_relax.sequence != 1)
+	  {
+      if (mips_macro_warning.first_insn_sizes[1] == 0)
+        mips_macro_warning.first_insn_sizes[1] = insn_length (ip);
+      mips_macro_warning.sizes[1] += insn_length (ip);
+      mips_macro_warning.insns[1]++;
+    }
 
-      if (mips_opts.mips16)
-	{
-	  ip->fixed_p = 1;
-	  ip->mips16_absolute_jump_p = (*reloc_type == BFD_RELOC_MIPS16_JMP);
-	}
+    if (mips_opts.mips16)
+    {
+      ip->fixed_p = 1;
+      ip->mips16_absolute_jump_p = (*reloc_type == BFD_RELOC_MIPS16_JMP);
+    }
       add_fixed_insn (ip);
     }
 
@@ -7706,12 +7812,12 @@ append_insn (struct mips_cl_insn *ip, expressionS *address_expr,
 	  hi_fixup->seg = now_seg;
 	}
 
-      /* Add fixups for the second and third relocations, if given.
+  /* Add fixups for the second and third relocations, if given.
 	 Note that the ABI allows the second relocation to be
 	 against RSS_UNDEF, RSS_GP, RSS_GP0 or RSS_LOC.  At the
 	 moment we only use RSS_UNDEF, but we could add support
 	 for the others if it ever becomes necessary.  */
-      for (i = 1; i < 3; i++)
+  for (i = 1; i < 3; i++)
 	if (reloc_type[i] != BFD_RELOC_UNUSED)
 	  {
 	    ip->fixp[i] = fix_new (ip->frag, ip->where,
@@ -7845,6 +7951,8 @@ append_insn (struct mips_cl_insn *ip, expressionS *address_expr,
       micromips_add_label ();
     }
 
+  //ztt add
+  mbbs_list_tail->num_fixs += get_fixup_num(ip);
   /* We just output an insn, so the next one doesn't have a label.  */
   mips_clear_insn_labels ();
 }

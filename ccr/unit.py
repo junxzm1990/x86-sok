@@ -16,7 +16,7 @@ Unit to represent the entity
         BasicBlock  : the class to represent an individual basic block
         Fixup       : the class to represent an individual fixup
 '''
-
+import constants as C
 class Object():
     def __init__(self):
         self.idx = -1
@@ -98,10 +98,15 @@ class BasicBlock():
         # Simulation purpose
         self.testVA = 0x0
 
+        self.type = 0 #ztt add to judge thumb mode
+
     def __repr__(self):
-        return '    BBL#%3d (%3dB) @0x%08x, BaseOff: 0x%04x, SecOff:0x%04x, Fixups: %d' \
-                % (self.idx, self.size, self.VA, self.offsetFromBase,
-                   self.offsetFromSection, self.fixupCnt)
+        fallthrough = "N"
+        if self.hasFallThrough:
+            fallthrough = "Y"
+        return '    BBL#%3d (%3dB) @0x%08x - 0x%08x, BaseOff: 0x%04x, SecOff:0x%04x, Fixups: %d , Type: %s, Padding: 0x%x, Fallthrough: %s' \
+                % (self.idx, self.size, self.VA, self.VA + self.size,self.offsetFromBase,
+                   self.offsetFromSection, self.fixupCnt,C.BBL_TYPE[self.type],self.padding,fallthrough)
 
 class Fixup():
     def __init__(self):
@@ -113,8 +118,8 @@ class Fixup():
         self.VA = 0x0
         self.type = None       # (c2c,c2d,d2c,d2d) = (0,1,2,3)
         self.numJTEntries = 0  # Number of jump table entries (for c2c only)
-        self.jtEntrySz = 0     # Each jump table entry size
 
+        self.jtEntrySz = 0     # Each jump table entry size
         self.derefVal = 0x0    # Value that the fixup holds (source)
         self.refTo = 0x0       # VA the fixup points to (destination)
         self.refBB = None      # Pointer that holds the referenced BB by refTo iff in .text
@@ -135,13 +140,16 @@ class Fixup():
         # section name
         self.secName = None
 
+        #ztt,add
+        self.imm = 0x0
+
     def __repr__(self):
         parentBB = str(self.parent.idx) if self.parent else "NA"
         type = {0: 'C2C', 1: 'C2D', 2: 'D2C', 3: 'D2D', 4: 'NewSectionStart', 5: 'Special'}
         isShortDist = "*" if self.derefSz < 4 else ""
         jumpTable = "JT [Entries: " + str(self.numJTEntries) + "(Sz: " + str(self.jtEntrySz) + "B)]"
         jtInfo = jumpTable if self.numJTEntries > 0 else ""
-        return '      Fixup#%3d@0x%08x[BB#%3s]: SecOff=0x%04x, Val=0x%08x%s, RefTo=0x%08x [%s] (%s) %s' \
+        return '      Fixup#%3d@0x%08x[BB#%3s]: SecOff=0x%04x, Val=0x%08x%s, RefTo=0x%08x [%s] (%s) %s ' \
                 % (self.idx, self.VA, parentBB, self.offset, self.derefVal,
                    isShortDist, self.refTo, type[self.type], self.target, jtInfo)
 

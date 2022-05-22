@@ -11,12 +11,20 @@
 
 import os, sys
 import logging
+
+from sqlalchemy import true
 import util
 import struct
 import unit
 import constants as C
 from util import hexPrint as HP
 from elfParser import ELFParser
+from elftools.elf.elffile import ELFFile
+from capstone import *
+from capstone.arm64 import *
+from BlockUtil import *
+from mipsRelocs import *
+
 
 '''
 Brief overview of classes
@@ -188,14 +196,15 @@ class BasicBlocks(Functions):
     """
     The BasicBlocks class inherits Functions class
     """
-    def __init__(self, bar, BinInfo, FuncInfo, BBInfo):
+    def __init__(self, bar, BinInfo, FuncInfo, BBInfo,fixupaddreslist,fixupname):
         Functions.__init__(self, bar, BinInfo, FuncInfo)
         self.BasicBlockLayout = []
         self.lookupByVA = dict()
 
         # Unpack the basic block information
         self.BBSize, self.BBFixupCnt, self.BBFallThrough, self.BBOffsetFromSection, \
-                self.BBSec, self.BBPadding, self.BBAssembleType = BBInfo
+                self.BBSec, self.BBPadding, self.BBAssembleType, self.BBType = BBInfo
+
         self.numFixups = sum(self.BBFixupCnt)
         self.numBasicBlocks = len(self.BBSize)
 
@@ -206,20 +215,123 @@ class BasicBlocks(Functions):
         self.BB2Func = util.buildLookupTbl(self.funcBBCnt)
 
         # self.BBOffset = util.getOffset(self.BBSize)
-        self.BBOffsetFromFunc = util.getOffsetFromAccordingOffset(self.funcBBCnt, self.BBOffsetFromSection)
         self.BBOffsetFromBase = util.computeOffsetFromBase(self.BBOffsetFromSection, self.BBSecVA, self.base)
+        self.BBOffsetFromFunc = util.getOffsetFromAccordingOffset(self.funcBBCnt, self.BBOffsetFromSection)
+        self.BBVA = util.computeRelaOffset(self.BBOffsetFromBase, self.base)
+        # for idx in range(0,len(self.BBOffsetFromSection)):
+        #     print("Original Data: VA is 0x%x, Baseoff: 0x%x, SecVA: 0x%x, Base: 0x%x" %(self.BBVA[idx],self.BBOffsetFromSection[idx], self.BBSecVA[idx], self.base))
+
+        self.block_check(fixupaddreslist,fixupname)
+
+        self.numFixups = sum(self.BBFixupCnt)
+        self.numBasicBlocks = len(self.BBSize)
+
+        # binpang, add
+        self.BBSecVA = [self.secVA[sec_name] for sec_name in self.BBSec]
+
+        # BB X belongs to Func Y; dict(X:Y)
+        self.BB2Func = util.buildLookupTbl(self.funcBBCnt)
+
+        # self.BBOffset = util.getOffset(self.BBSize)
+        self.BBOffsetFromBase = util.computeOffsetFromBase(self.BBOffsetFromSection, self.BBSecVA, self.base)
+        self.BBOffsetFromFunc = util.getOffsetFromAccordingOffset(self.funcBBCnt, self.BBOffsetFromSection)
         self.BBVA = util.computeRelaOffset(self.BBOffsetFromBase, self.base)
 
         self.generateBasicBlockList(bar)
 
+    #TODO(ztt) make it fit to arm32 and other arch
+    # sub padding and add it to the last instruction
+    def multi_jump(self,idx):
+        return self.elfParser.multi_jump(self.BBVA[idx],self.BBSize[idx] - self.BBPadding[idx],self.BBSec[idx],self.BBSecVA[idx],self.BBType[idx],True)
+        #return list()
 
+    def count_fixup(self,left,right,fixupaddreslist):
+        res = 0
+        for pc in range(left,right,0x2):
+            if(fixupaddreslist.count(pc) > 0):
+                res += 1
+        return res
 
+    def block_check(self,fixupaddreslist,fixupname):
+        resBBSize = list()
+        resBBFixupCnt = list()
+        resBBFallThrough = list()
+        resBBOffsetFromSection = list()
+        resBBSec = list()
+        resBBPadding = list()
+        resBBAssembleType = list()
+        resBBVA = list()
+        resBBType = list()
+        now = 0
+        now_func = 0
+        for idx in range(len(fixupaddreslist)):
+            fixupaddreslist[idx] = fixupaddreslist[idx] + self.getElfParser().getSectionVA(fixupname[idx])
+        for idx in range(self.numBasicBlocks):
+            now += 1
+            (res,cond) = self.multi_jump(idx)
+
+            if len(res) > 1:
+                # print("T: BB#%d find jump count is %d" %(idx,len(res)))
+                last = self.BBVA[idx]
+                self.numBBs -= 1
+                self.funcBBCnt[now_func] -= 1
+                cnt = 0
+                for (pc,condition) in zip(res,cond):
+                    # print("T: MULTI JUMP: 0x%x" %pc)
+                    # pc is first instruction address of the next BB
+                    # last is the fisrt instruction address of the BB
+                    cnt = cnt + 1
+
+                    resBBFixupCnt.append(self.count_fixup(last,pc,fixupaddreslist))
+                    resBBOffsetFromSection.append(last - self.BBVA[idx] + self.BBOffsetFromSection[idx])
+                    resBBSec.append(self.BBSec[idx]) # same section
+                    if cnt == len(res):
+                        resBBSize.append(pc - last + self.BBPadding[idx])
+                        resBBFallThrough.append(self.BBFallThrough[idx])
+                        resBBPadding.append(self.BBPadding[idx]) # only last bb have padding
+                    else:
+                        resBBSize.append(pc - last)
+                        resBBFallThrough.append(condition)
+                        resBBPadding.append(0) # same padding
+                    resBBAssembleType.append(self.BBAssembleType[idx]) # same asseble type
+                    resBBVA.append(pc)
+                    resBBType.append(self.BBType[idx]) # same type
+                    last = pc
+                    self.numBBs += 1
+                    self.funcBBCnt[now_func] += 1
+            else:
+                resBBSize.append(self.BBSize[idx])
+                resBBFixupCnt.append(self.BBFixupCnt[idx])
+                resBBFallThrough.append(self.BBFallThrough[idx])
+                resBBOffsetFromSection.append(self.BBOffsetFromSection[idx])
+                resBBSec.append(self.BBSec[idx])
+                resBBPadding.append(self.BBPadding[idx])
+                resBBAssembleType.append(self.BBAssembleType[idx])
+                resBBVA.append(self.BBVA)
+                resBBType.append(self.BBType[idx])
+
+            if now == self.funcBBCnt[now_func]:
+                now_func += 1
+                now = 0
+
+            
+        self.BBSize = resBBSize
+        self.BBFixupCnt = resBBFixupCnt
+        self.BBFallThrough = resBBFallThrough
+        self.BBOffsetFromSection = resBBOffsetFromSection
+        self.BBSec = resBBSec
+        self.BBPadding = resBBPadding
+        self.BBAssembleType = resBBAssembleType
+        self.BBVA = resBBVA
+        self.BBType = resBBType
+            
 
     def generateBasicBlockList(self, bar):
         prevBBL = None
         for idx in range(self.numBasicBlocks):
             BBL = unit.BasicBlock()
             BBL.idx = idx
+            BBL.type = self.BBType[idx]
             BBL.size = self.BBSize[idx]
             BBL.hasFallThrough = self.BBFallThrough[idx]
             BBL.VA = self.BBVA[idx]
@@ -233,11 +345,15 @@ class BasicBlocks(Functions):
             # Assign the parent of the BB and add it to the list
             BBL.parent = self.getFunction(self.BB2Func[idx])
             BBL.parent.BasicBlocks.append(BBL)
-
             BBL.offsetFromFunc = self.BBOffsetFromFunc[idx]
             BBL.offsetFromSection = self.BBOffsetFromSection[idx]
             BBL.offsetFromBase = self.BBOffsetFromBase[idx]
-
+            '''
+            if self.elfParser.check_terminator(BBL.VA + BBL.size - 0x4,self.BBSec[idx],self.BBSecVA[idx],True):
+                BBL.flag = True
+            else:
+                BBL.flag = False
+            '''
             # As fixup might not be in BBL, all ctrs have to be taken care of here
             # binpang, comment it out
             # may be not accurate
@@ -286,14 +402,18 @@ class Fixups():
     """
     The Fixups class that contains a variety of fixups
     """
+    #Fixups(list(zip(*fixupsText)), self.constructInfo, C.SEC_TEXT, bar)
     def __init__(self, FixupData, constructInfo, sectionName, bar):
         self.FixupData = FixupData
         self.FixupsLayout = []
+        self.FixupsLayoutInsn = []
         # The following layout is only defined when special section has been found in .text
         self.FixupsLayoutSpecial = []
+        self.FixupsLayoutSpecialInsn = []
         # The following layout is only defined in CFI-enabled binary with LLVM (-cfi-icall)
         self.FixupsLayoutOrphan = []
-
+        self.FixupsLayoutOrphanInsn = []
+        
         self.curBBIdx = 0
 
         self.CI = constructInfo
@@ -330,27 +450,128 @@ class Fixups():
             # we have iterate the whole basic blocks
             if self.curBBIdx % bbNum == curIdx:
                 return None
+    # return the sink position for adrp / adr
+    def taintedRegsCrossFixup(self,fixup_insn_list,now_id,max_id):
+        
+        first_inst = fixup_insn_list[now_id]
+        (regs_read, regs_write)  = first_inst.regs_access()
+        tainted_regs = list()
+
+        for r in regs_write:
+            reg_name = first_inst.reg_name(r)
+            logging.debug("[Fixup: taint initialize]: reg write is %s " % (reg_name))
+            if 'ip' in reg_name:
+                continue
+            tainted_regs.append(r)
+            logging.debug("[Fixup: taint initialize]: reg name is %s " % (reg_name))
+        for idx in range(now_id + 1,max_id):
+            inst = fixup_insn_list[idx]
+            (regs_read, regs_write) = inst.regs_access()
+            taint_read = False
+
+            for r in regs_read:
+                if r in tainted_regs:
+                    taint_read = True
+                    break
+
+            # taint the write regs
+            if taint_read:
+                if inst.mnemonic == 'add' or inst.mnemonic == 'ldr':
+                    logging.debug("[Fixup match pair 0x%x with 0x%x ]" %(first_inst.address,inst.address))
+                    return idx
+
+        logging.error("[Fixup match failed for the address : 0x%x]" %first_inst.address)
+        return -1
+
+    def _is_cisc(self, binary):
+        result = False
+        with open(binary, 'rb') as openFile:
+            elffile = ELFFile(openFile)
+            arch = elffile.get_machine_arch()
+
+            if arch == 'x86' or arch == 'x64':
+                result = True
+        return result
+
+    def _resolve_refto(self, FI,LOAD_RANGE,offset2reloction,mips_jmp_tbl_blk,is_cisc = False):
+        if is_cisc:
+            return
+
+        if self.sectionName == C.SEC_TEXT and FI.VA in mips_jmp_tbl_blk:
+            FI.numJTEntries = 0
+            FI.jtEntrySz = 0
+
+        parent = self.getParent(FI.VA)
+        pc_flag = False
+        if parent != None:
+            #logging.debug("Fixup#%4d - Off:0x%04x, DerefSz:%d, IsRela:%s, Type: %s (@Sec %s) , VA: 0x%x, IMM: 0x%x , RefTo: 0x%x ,NumEntry: 0x%x" % \
+            #    (cnt, FI.offset, FI.derefSz, FI.isRela, FI.type, FI.secName ,FI.VA, FI.imm, FI.refTo,FI.numJTEntries))
+            if(parent.type & (1 << 6) == 64):
+                FI.imm = self.elfParser.getArmImmValue(FI,True)
+                if(self.elfParser.getAccessReg(FI,True)):
+                    pc_flag = True
+            else:
+                FI.imm = self.elfParser.getArmImmValue(FI,False)
+                if(self.elfParser.getAccessReg(FI,False)):
+                    pc_flag = True
+        if pc_flag:
+            if(parent.type & (1 << 6) == 64):
+                if FI.VA % 4 != 0:
+                    sz = 2
+                else:
+                    sz = 4
+            else:
+                    sz = 8
+            if self.elfParser.checkTBInstruction(FI):
+                FI.refTo = FI.VA + 0x4
+            else:
+                FI.refTo = FI.VA + sz + FI.imm
+
+        elif FI.VA in offset2reloction.keys():
+            FI.refTo = offset2reloction[FI.VA]
+            if not isInRange(FI.refTo, LOAD_RANGE):
+                FI.refTo = FI.imm
+        else:
+            FI.refTo = FI.imm
+
 
     def _generateFixupList(self, bar):
         """ Initialize the fixup information from metadata """
         # The following is counting non-special fixups, excluding the type 5
         textIdx, specialIdx, orphanIdx = 0, 0, 0
+        cnt = 0
+
+        LOAD_RANGE = getLoadAddressRange(self.elfParser.fn)
+        offset2reloction = readElfRelocation(self.elfParser.fn)
+        # for mips
+        (mips_fixups, mips_jmp_tbl_blk) = resolve_refs(self.elfParser.fn)
+
+        if mips_fixups is not None:
+            offset2reloction = mips_fixups
+
         for idx in range(len(self.FixupData)):
             FI = unit.Fixup()
-            sec_name = None
+            # sec_name = None
             # Only .text section could have a jump table.
             if self.sectionName == C.SEC_TEXT:
                 FI.offset, FI.derefSz, FI.isRela, FI.type, FI.secName, FI.numJTEntries, FI.jtEntrySz = self.FixupData[idx]
             else:
                 FI.offset, FI.derefSz, FI.isRela, FI.type, FI.secName = self.FixupData[idx]
 
+            # Relative address to section
             FI.VA = self.elfParser.getSectionVA(FI.secName) + FI.offset
 
+            is_cisc = self._is_cisc(self.elfParser.fn)
+            self._resolve_refto(FI, LOAD_RANGE, offset2reloction, mips_jmp_tbl_blk, is_cisc)
+
+            logging.debug("Fixup#%4d - Off:0x%04x, DerefSz:%d, IsRela:%s, Type: %s (@Sec %s) , VA: 0x%x, IMM: 0x%x , RefTo: 0x%x ,NumEntry: 0x%x" % \
+                    (cnt, FI.offset, FI.derefSz, FI.isRela, FI.type, FI.secName ,FI.VA, FI.imm, FI.refTo,FI.numJTEntries))
+            cnt = cnt + 1
             # Assign the parent of the BB and add it to the list iff .text section
             if self.sectionName == C.SEC_TEXT and FI.type < 4:
                 try:
-                    #FI.parent = self.CI.getBasicBlock(self.Fixup2BB[textIdx])
                     parent = self.getParent(FI.VA)
+                    #FI.parent = self.CI.getBasicBlock(self.Fixup2BB[textIdx])
                     assert (parent != None), "fixup %x in .text does not match a basic block!" % FI.VA
                     FI.parent = parent
                     FI.parent.Fixups.append(FI)
@@ -363,40 +584,52 @@ class Fixups():
             if FI.type == C.FT_Special:
                 FI.idx = specialIdx
                 self.FixupsLayoutSpecial.append(FI)
+                #self.FixupsLayoutSpecailInsn.append(self.elfParser.getInsn(FI))
                 specialIdx += 1
             elif FI.isOrphan:
                 FI.idx = orphanIdx
                 FI.isRela = True    # Should be done manually (metadata does not have it)
                 self.FixupsLayoutOrphan.append(FI)
+                #self.FixupsLayoutOrphanInsn.append(self.elfParser.getInsn(FI))
                 orphanIdx += 1
             else:
                 FI.idx = textIdx
                 self.FixupsLayout.append(FI)
+                #self.FixupsLayoutInsn.append(self.elfParser.getInsn(FI))
                 textIdx += 1
             bar += 1
-
+        #print("\nT:")
+        #print(LOAD_RANGE)
+        # ztt add to fix arm instruction
     def _processRefs(self):
         """ Compute fixup derefVals and refTos from the given section """
         def findFixupTarget(FI):
-            FI.derefVal = struct.unpack(fmt[FI.derefSz],
-                                        sectionData[FI.offset:FI.offset + FI.derefSz])[0]
-            FI.refTo = FI.VA + FI.derefSz + util.toSigned32(FI.derefVal) if FI.isRela else FI.derefVal
+            FI.derefVal = int.from_bytes(sectionData[FI.offset:FI.offset + FI.derefSz],byteorder='little')
+            if is_cisc:
+                FI.refTo = FI.VA + FI.derefSz + util.toSigned32(FI.derefVal) if FI.isRela else FI.derefVal
+
             FI.refBB = self.CI.getBBlByVA(FI.refTo)
             if FI.refBB:
                 FI.target = "BB#%3s" % str(FI.refBB.idx)
             else:
                 FI.target = self.elfParser.getSectionByVA(FI.refTo)
 
+        is_cisc = self._is_cisc(self.elfParser.fn)
+
         sectionData = self.elfParser.elf.get_section_by_name(self.sectionName).data()
         fmt = {1: "<b", 2: "<h", 4: "<i", 8: "<q"}
         for FI in self.FixupsLayout:
-            FI.derefVal = struct.unpack(fmt[FI.derefSz],
+            try:
+                FI.derefVal = struct.unpack(fmt[FI.derefSz],
                                         sectionData[FI.offset:FI.offset + FI.derefSz])[0]
-
+            except:
+                FI.derefVal = int.from_bytes(sectionData[FI.offset:FI.offset + FI.derefSz],byteorder='little')
             # In the small/medium ABI model, it is safe to assume that
             # all FixupRefValues are the signed 32-bit integers
             # FIXME : Handle the large model (64-bit offset) in need - we do not care for now
-            FI.refTo = FI.VA + FI.derefSz + util.toSigned32(FI.derefVal) if FI.isRela else FI.derefVal
+            if is_cisc:
+                FI.refTo = FI.VA + FI.derefSz + util.toSigned32(FI.derefVal) if FI.isRela else FI.derefVal
+
 
 # binpang. Comment it
             FI.refBB = self.CI.getBBlByVA(FI.refTo)
@@ -516,10 +749,11 @@ class EssentialInfo():
 
         # Pre-processing: data collection and preparation for building essential information
         binInfo = RI['bin_info']
+
         # objInfo = (RI['obj_size'], RI['obj_func_cnt'], RI['obj_src_type'], RI['obj_offset'], RI['obj_section'])
         funcInfo = (RI['func_size'], RI['func_bb_cnt'], RI['func_offset'], RI['func_section'], RI['func_type'])
         bbInfo = (RI['bb_size'], RI['bb_fixup_cnt'], RI['bb_fall_through'], RI['bb_offset'],  \
-                RI['bb_section'], RI['bb_padding'], RI['bb_assemble'])
+                RI['bb_section'], RI['bb_padding'], RI['bb_assemble'],RI['bb_type'])
 
         fixupsText      = (RI[C.DS_FIXUP_TEXT[0]], RI[C.DS_FIXUP_TEXT[1]],
                            RI[C.DS_FIXUP_TEXT[2]], RI[C.DS_FIXUP_TEXT[3]],
@@ -537,7 +771,28 @@ class EssentialInfo():
         fixupsInitArray = (RI[C.DS_FIXUP_INIT_ARR[0]], RI[C.DS_FIXUP_INIT_ARR[1]],
                            RI[C.DS_FIXUP_INIT_ARR[2]], RI[C.DS_FIXUP_INIT_ARR[3]],
                            RI[C.DS_FIXUP_INIT_ARR[4]])
+        
+        self.fixaddresslist = list()
+        self.fixupname = list()
 
+        if len(RI[C.DS_FIXUP_TEXT[0]]) > 0:
+            self.count_fixup_address(list(zip(*fixupsText)),C.SEC_TEXT)
+
+        if len(RI[C.DS_FIXUP_RODATA[0]]) > 0:
+            self.count_fixup_address(list(zip(*fixupsRodata)),C.SEC_RODATA)
+
+        if len(RI[C.DS_FIXUP_DATA[0]]) > 0:
+            self.count_fixup_address(list(zip(*fixupsData)),C.SEC_DATA)
+
+        # comment it out for now. Have bug(when there exists both .data.rel.ro and .data.rel.ro.local
+        #if len(RI[C.DS_FIXUP_DATAREL[0]]) > 0:
+        #    self.FixupsInDataRel = count_fixup_address(zip(*fixupsDataRel), self.constructInfo, C.SEC_DATA_REL, bar)
+
+        if len(RI[C.DS_FIXUP_INIT_ARR[0]]) > 0:
+            self.count_fixup_address(list(zip(*fixupsInitArray)),C.SEC_INIT_ARR)
+
+
+        
         layoutInfoCnt = len(RI['func_size']) + len(RI['bb_size'])
         self.fixupInfoCnt = len(RI[C.DS_FIXUP_TEXT[0]]) + len(RI[C.DS_FIXUP_RODATA[0]]) + \
                             len(RI[C.DS_FIXUP_DATA[0]]) + len(RI[C.DS_FIXUP_DATAREL[0]]) + \
@@ -545,8 +800,10 @@ class EssentialInfo():
         bar = util.ProgressBar(layoutInfoCnt + self.fixupInfoCnt)
 
         # a) Construct BasicBlocks, Functions, Objects and the binary in Bottom-Up way
-        self.constructInfo = BasicBlocks(bar, binInfo, funcInfo, bbInfo)
+        self.constructInfo = BasicBlocks(bar, binInfo, funcInfo, bbInfo,self.fixaddresslist,self.fixupname)
+        self.constructInfo.show()
         # self.constructInfo.storeAlignSize(RI['align_size'])
+
 
         # b) Construct all fixups in .text, .rodata, .data, data.rel.ro, and .init_array
         self.FixupsInText, self.FixupsInRodata = None, None
@@ -557,6 +814,19 @@ class EssentialInfo():
 
         # c) Check if the provided data is appropriate for generating a variant
         # self.__sanityCheck(RI, self.constructInfo)
+
+    def count_fixup_address(self,FixupData,sectionName):
+        for idx in range(len(FixupData)):
+            sec_name = None
+            # Only .text section could have a jump table.
+            if sectionName == C.SEC_TEXT:
+                offset, derefSz, isRela, _type, secName, numJTEntries, jtEntrySz = FixupData[idx]
+            else:
+                offset, derefSz, isRela, _type, secName = FixupData[idx]
+
+            # Relative address to section
+            self.fixaddresslist.append(offset)
+            self.fixupname.append(secName)
 
     def processFixups(self, bar, RI, fixupsText, fixupsRodata, fixupsData, fixupsDataRel, fixupsInitArray):
         """ If a section contains fixups, generate fixup instances """

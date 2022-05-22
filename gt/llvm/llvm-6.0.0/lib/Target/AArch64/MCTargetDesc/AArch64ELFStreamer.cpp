@@ -55,6 +55,7 @@ AArch64TargetAsmStreamer::AArch64TargetAsmStreamer(MCStreamer &S,
                                                    formatted_raw_ostream &OS)
   : AArch64TargetStreamer(S), OS(OS) {}
 
+// binpang. todo. update the bytes.
 void AArch64TargetAsmStreamer::emitInst(uint32_t Inst) {
   OS << "\t.inst\t0x" << Twine::utohexstr(Inst) << "\n";
 }

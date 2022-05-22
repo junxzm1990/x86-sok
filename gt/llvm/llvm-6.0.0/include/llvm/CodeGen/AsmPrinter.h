@@ -598,6 +598,7 @@ private:
   /// This method emits the header for the current function.
   virtual void EmitFunctionHeader();
 
+  // ztt Koo add parent info here
   /// Emit a blob of inline asm to the output streamer.
   void
   EmitInlineAsm(StringRef Str, const MCSubtargetInfo &STI,

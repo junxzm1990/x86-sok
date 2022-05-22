@@ -34,6 +34,9 @@
 #include <cassert>
 #include <cstdint>
 
+#include <string> //ztt add
+
+
 using namespace llvm;
 
 MCOperand ARMAsmPrinter::GetSymbolRef(const MachineOperand &MO,
@@ -205,8 +208,17 @@ void ARMAsmPrinter::EmitSled(const MachineInstr &MI, SledKind Kind)
   // is executing it).
   // By analogy to ARMAsmPrinter::emitPseudoExpansionLowering() |case ARM::B|.
   // It is not clear why |addReg(0)| is needed (the last operand).
+
+  // ztt add
+  const MachineBasicBlock *MBB = MI.getParent();
+  unsigned MBBID = MBB->getNumber();
+  unsigned MFID = MBB->getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+
+
+
   EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::Bcc).addImm(20)
-    .addImm(ARMCC::AL).addReg(0));
+    .addImm(ARMCC::AL).addReg(0).setParent(ID));
 
   MCInst Noop;
   Subtarget->getInstrInfo()->getNoop(Noop);

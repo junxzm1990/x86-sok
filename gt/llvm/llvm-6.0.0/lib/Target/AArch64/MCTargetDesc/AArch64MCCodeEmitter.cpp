@@ -572,6 +572,8 @@ void AArch64MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
 
   uint64_t Binary = getBinaryCodeForInstr(MI, Fixups, STI);
   support::endian::Writer<support::little>(OS).write<uint32_t>(Binary);
+  unsigned CurByte = 4;
+  STI.setByteCtr(CurByte); //ztt
   ++MCNumEmitted; // Keep track of the # of mi's emitted.
 }
 

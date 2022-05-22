@@ -106,13 +106,11 @@ struct frag {
 #endif
 
 // binpang, add
-#if defined(__i386__) || defined(__x86_64__)
 struct basic_block *last_bb; // last basic block in this fragment
 unsigned int bb_offset; // basic block offset in this fragment
 offsetT last_bb_added_size; // last basic block may be added
 offsetT last_bb_added_fix_size; // fr_fix added number
 asection *parent; // which section it belongs to
-#endif
 
   /* Data begins here.  */
   char fr_literal[1];

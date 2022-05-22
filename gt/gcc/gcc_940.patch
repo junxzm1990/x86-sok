@@ -1,0 +1,132 @@
+Only in gcc: bbInfo2asm.c
+Only in gcc: bbInfo2asm.h
+diff --color -r /work/x86_sok_testsuite/origin_gcc_9.4.0/gcc-9.4.0/gcc/cfg.c gcc/cfg.c
+486c486,505
+< 
+---
+> 
+> // ztt, add
+> // if the edge is fall through, return true
+> bool edge_fall_through(edge e){
+> 
+>       int i, flags = e->flags;
+>       gcc_assert (e->flags <= EDGE_ALL_FLAGS);
+>       for (i = 0; flags; i++)
+> 	if (flags & (1 << i))
+> 	  {
+> 	    flags &= ~(1 << i);
+> 
+> 	    if (i == 0)
+> 		    return true;
+> 	  }
+>       return false;
+> }
+> 
+> 
+> 
+diff --color -r /work/x86_sok_testsuite/origin_gcc_9.4.0/gcc-9.4.0/gcc/cfg.h gcc/cfg.h
+99a100
+> extern bool edge_fall_through(edge);//ztt, add
+diff --color -r /work/x86_sok_testsuite/origin_gcc_9.4.0/gcc-9.4.0/gcc/final.c gcc/final.c
+83a84
+> #include "bbInfo2asm.h" //ztt added
+277a279,282
+> 	  //ztt,add
+> 	  // mark that this is the begining of inline
+> 	  bbinfo2_asm_inline_start();
+> 
+292a298,301
+> 
+> 	  // ztt, add
+> 	  // mark that this is the end of inline
+> 	  bbinfo2_asm_inline_end();
+1739a1749,1752
+>   // ztt, add
+>   // output function begin directive
+>   bbinfo2_asm_func_begin();
+> 
+1896a1910,1913
+>   // ztt add
+>   // output function end directive
+>   bbinfo2_asm_func_end();
+> 
+1899c1916,1952
+< 
+---
+> 
+> //ztt, add
+> /* Dump the basic block marker information. FILE is the assembly
+>  * output file, and INSN is the instruction being emitted.
+>  */
+> 
+> static void
+> dump_basic_block_mark (FILE *file, rtx_insn *insn, basic_block *start_to_bb,
+> 		basic_block *end_to_bb, int bb_map_size)
+> {
+>     basic_block bb;
+> 	uint32_t fall_through = 0;
+> 	edge e;
+> 	edge_iterator ei;
+> 
+>     if (INSN_UID(insn) < bb_map_size
+> 	    && (bb = start_to_bb[INSN_UID(insn)]) != NULL)
+>     {
+> 	// BUG. only -dA can output the directive, fix later.
+> 	FOR_EACH_EDGE (e, ei, bb->succs){
+> 	  if(edge_fall_through(e))
+> 	   fall_through = 1;
+> 	}
+> 	bbinfo2_asm_block_begin(fall_through);
+>     }
+>     if (INSN_UID(insn) < bb_map_size
+> 	    && (bb = end_to_bb[INSN_UID(insn)]) != NULL)
+>     {
+> 	FOR_EACH_EDGE (e, ei, bb->succs){
+> 	  if(edge_fall_through(e))
+> 	   fall_through = 1;
+> 	}
+> 	bbinfo2_asm_block_end(fall_through);
+>     }
+> }
+> 
+> 
+1983,1984c2036,2038
+<   if (flag_debug_asm)
+<     {
+---
+> 	//ztt, comment out
+> 	//if (flag_debug_asm)
+>     //{
+1998c2052
+<     }
+---
+>     //}
+2020a2075,2076
+> 	  dump_basic_block_mark(file, insn, start_to_bb, end_to_bb,
+> 		      bb_map_size); // ztt, add
+2026,2027c2082,2084
+<   if (flag_debug_asm)
+<     {
+---
+>   //ztt, comment out
+>   //if (flag_debug_asm)
+>     //{
+2030c2087
+<     }
+---
+>     //}
+2600a2658,2666
+> 
+> 		//ztt, add, debug, print jump table information
+> 		rtx_jump_table_data *table_tmp = dyn_cast<rtx_jump_table_data*>(insn);
+> 	    if(table_tmp){
+> 			uint32_t entry_size = GET_MODE_SIZE(table_tmp->get_data_mode());
+> 			bbinfo2_asm_jumptable(vlen, entry_size);
+> 	    }
+> 
+> 
+diff --color -r /work/x86_sok_testsuite/origin_gcc_9.4.0/gcc-9.4.0/gcc/Makefile.in gcc/Makefile.in
+1292a1293
+> 	bbInfo2asm.o\
+1294a1296
+> 	early-remat.o \

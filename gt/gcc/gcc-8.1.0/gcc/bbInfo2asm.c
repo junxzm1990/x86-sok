@@ -49,9 +49,10 @@
 
 // output the basic block begin label
 // if fall_through = 0, not fall through; otherwise, fall through
-void bbinfo2_asm_block_begin(){
+void bbinfo2_asm_block_begin(uint32_t fallThrough){
     switch_to_section(current_function_section());
-    ASM_OUTPUT_DIRECTIVE(asm_out_file, BLOCK_BEGIN_LABEL);
+    // ASM_OUTPUT_DIRECTIVE(asm_out_file, BLOCK_BEGIN_LABEL);
+    fprintf(asm_out_file, "\t.%s %d\n", BLOCK_BEGIN_LABEL, fallThrough);
 }
 
 // output the basic block end label

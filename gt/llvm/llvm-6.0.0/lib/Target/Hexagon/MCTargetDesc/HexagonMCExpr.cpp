@@ -107,8 +107,9 @@ HexagonMCExpr::HexagonMCExpr(MCExpr const *Expr)
     : Expr(Expr), MustNotExtend(false), MustExtend(false), S27_2_reloc(false),
       SignMismatch(false) {}
 
-void HexagonMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+const MCExpr *HexagonMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   Expr->print(OS, MAI);
+  return NULL;
 }
 
 void HexagonMCExpr::setSignMismatch(bool Val) {

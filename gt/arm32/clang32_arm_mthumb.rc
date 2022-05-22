@@ -1,0 +1,13 @@
+SRC_FILE=${BASH_SOURCE[0]}
+
+GT_PATH=`dirname $SRC_FILE`
+GT_PATH=`realpath $GT_PATH`
+
+CLANG_PATH=${GT_PATH}/build_arm/build_clang/bin
+LIBC_PATH=${GT_PATH}/build_arm/glibc_build_32
+BINUTILS_PATH=${GT_PATH}/build_arm/executable_binutils/bin
+export CC="${CLANG_PATH}/clang -B${BINUTILS_PATH}"
+export CXX="${CLANG_PATH}/clang++ -B${BINUTILS_PATH}"
+export CFLAGS="-B${LIBC_PATH}/lib -g -ldl -fuse-ld=gold -mthumb"
+export CXXFLAGS="-B${LIBC_PATH}/lib -g -ldl -fuse-ld=gold -mthumb"
+export LDFLAGS="-L${LIBC_PATH}/lib"

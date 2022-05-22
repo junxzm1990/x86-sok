@@ -3955,6 +3955,12 @@ bool AArch64AsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   }
 
   MCInst Inst;
+
+  //ztt add refer to X86AsmParser.cpp L2809
+  // ztt_set_parent
+  // never here!
+  Inst.setParent(getSTI().getParentID());
+
   // First try to match against the secondary set of tables containing the
   // short-form NEON instructions (e.g. "fadd.2s v0, v1, v2").
   unsigned MatchResult =

@@ -55,7 +55,7 @@ public:
   bool isNegated() const { return Negated; }
   void setNegated(bool negated = true) { Negated = negated; }
 
-  void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
+  const MCExpr *printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
   bool evaluateAsRelocatableImpl(MCValue &Res, const MCAsmLayout *Layout,
                                  const MCFixup *Fixup) const override;
 

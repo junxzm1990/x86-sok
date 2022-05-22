@@ -33,7 +33,7 @@ const Nios2MCExpr *Nios2MCExpr::create(const MCSymbol *Symbol,
   return new (Ctx) Nios2MCExpr(Kind, MCSym);
 }
 
-void Nios2MCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+const MCExpr *Nios2MCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
 
   switch (Kind) {
   case CEK_None:
@@ -51,6 +51,7 @@ void Nios2MCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   OS << '(';
   Expr->print(OS, MAI, true);
   OS << ')';
+  return NULL;
 }
 
 bool Nios2MCExpr::evaluateAsRelocatableImpl(MCValue &Res,

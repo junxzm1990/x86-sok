@@ -78,6 +78,28 @@ static bool isFixupKindRIPRel(unsigned Kind) {
          Kind == X86::reloc_riprel_4byte_relax_rex;
 }
 
+unsigned getFixupKindSize(unsigned Kind) {
+  switch (Kind) {
+  default:
+    llvm_unreachable("invalid fixup kind!");
+  case FK_PCRel_1:
+  case FK_Data_1: return 1;
+  case FK_PCRel_2:
+  case FK_Data_2: return 2;
+  case FK_PCRel_4:
+    // FIXME: Remove these!!!
+  case X86::reloc_riprel_4byte:
+  case X86::reloc_riprel_4byte_relax:
+  case X86::reloc_riprel_4byte_relax_rex:
+  case X86::reloc_riprel_4byte_movq_load:
+  case X86::reloc_signed_4byte:
+  case X86::reloc_signed_4byte_relax:
+  case FK_Data_4: return 4;
+  case FK_Data_8: return 8;
+  }
+}
+
+
 static unsigned getFixupKindLog2Size(unsigned Kind) {
   switch (Kind) {
   default:
@@ -126,7 +148,7 @@ void X86MachObjectWriter::RecordX86_64Relocation(
     // expression addend without the PCrel bias. However, instructions with data
     // following the relocation are not accommodated for (see comment below
     // regarding SIGNED{1,2,4}), so it isn't exactly that either.
-    Value += 1LL << Log2Size;
+    Value += (1ULL << Log2Size);
   }
 
   if (Target.isAbsolute()) { // constant

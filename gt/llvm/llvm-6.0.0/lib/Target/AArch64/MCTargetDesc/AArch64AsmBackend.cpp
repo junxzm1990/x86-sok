@@ -91,10 +91,50 @@ public:
 
   unsigned getFixupKindContainereSizeInBytes(unsigned Kind) const;
   
-  unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+  //ztt Copy getFixupKindNumBytes to here
+  unsigned getFixupKindSize(unsigned Kind) const override {
+    switch (Kind) {
+  default:
+    llvm_unreachable("Unknown fixup kind!");
+
+  case AArch64::fixup_aarch64_tlsdesc_call:
+    return 0;
+
+  case FK_Data_1:
+    return 1;
+
+  case AArch64::fixup_aarch64_movw:
+  case FK_Data_2:
+  case FK_SecRel_2:
+    return 2;
+
+  case AArch64::fixup_aarch64_pcrel_branch14:
+  case AArch64::fixup_aarch64_add_imm12:
+  case AArch64::fixup_aarch64_ldst_imm12_scale1:
+  case AArch64::fixup_aarch64_ldst_imm12_scale2:
+  case AArch64::fixup_aarch64_ldst_imm12_scale4:
+  case AArch64::fixup_aarch64_ldst_imm12_scale8:
+  case AArch64::fixup_aarch64_ldst_imm12_scale16:
+  case AArch64::fixup_aarch64_ldr_pcrel_imm19:
+  case AArch64::fixup_aarch64_pcrel_branch19:
+    return 3;
+
+  case AArch64::fixup_aarch64_pcrel_adr_imm21:
+  case AArch64::fixup_aarch64_pcrel_adrp_imm21:
+  case AArch64::fixup_aarch64_pcrel_branch26:
+  case AArch64::fixup_aarch64_pcrel_call26:
+  case FK_Data_4:
+  case FK_SecRel_4:
+    return 4;
+
+  case FK_Data_8:
+    return 8;
+  }
+}
 
   bool shouldForceRelocation(const MCAssembler &Asm, const MCFixup &Fixup,
                              const MCValue &Target) override;
+
 };
 
 } // end anonymous namespace

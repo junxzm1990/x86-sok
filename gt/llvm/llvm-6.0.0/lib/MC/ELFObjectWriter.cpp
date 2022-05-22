@@ -1024,6 +1024,7 @@ void ELFObjectWriter::writeSectionData(const MCAssembler &Asm, MCSection &Sec,
 
   // Koo: process the special section (.rand) to store the information for transformation
   if (SectionName.startswith(".rand")) {
+    //printf("Find .rand section!\n");
     Asm.WriteRandInfo(Layout);
     return;
   }

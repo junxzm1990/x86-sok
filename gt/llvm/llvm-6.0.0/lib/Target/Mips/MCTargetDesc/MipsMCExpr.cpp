@@ -35,7 +35,7 @@ const MipsMCExpr *MipsMCExpr::createGpOff(MipsMCExpr::MipsExprKind Kind,
   return create(Kind, create(MEK_NEG, create(MEK_GPREL, Expr, Ctx), Ctx), Ctx);
 }
 
-void MipsMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+const MCExpr *MipsMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   int64_t AbsVal;
 
   switch (Kind) {
@@ -123,6 +123,7 @@ void MipsMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   else
     Expr->print(OS, MAI, true);
   OS << ')';
+  return Expr;
 }
 
 bool

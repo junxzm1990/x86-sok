@@ -36,7 +36,7 @@ public:
   // Returns the child of this expression.
   const MCExpr *getSubExpr() const { return Expr; }
 
-  void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
+  const MCExpr *printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
   bool evaluateAsRelocatableImpl(MCValue &Res, const MCAsmLayout *Layout,
                                  const MCFixup *Fixup) const override;
   void visitUsedExpr(MCStreamer &Streamer) const override;

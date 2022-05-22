@@ -1095,6 +1095,7 @@ class Layout
   void visit_relobj(Relobj* obj){
     std::map<Relobj*, bool>::iterator tmp_iter;
     tmp_iter = relobj_map.find(obj);
+    //printf("Now object name is %s\n",obj->name().c_str());
     if (tmp_iter == relobj_map.end()){
       gold_info("[bbinfo]: WARNING, the object %s does not in relobj list!", obj->name().c_str());
       return;

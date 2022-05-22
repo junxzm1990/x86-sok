@@ -142,13 +142,13 @@ public:
   // Koo
   uint64_t getOffset() { return Offset; }
   const std::list<std::string> getAllMBBs() const {return MBBIDs; }
-  void addMachineBasicBlockTag(std::string T) { 
+  void addMachineBasicBlockTag(std::string T) {
     for (auto it=MBBIDs.begin(); it!=MBBIDs.end(); ++it)
       if (T.compare(*it) == 0)
         return;
     MBBIDs.push_back(T); 
   }
-  
+
   void dump() const;
 };
 
@@ -211,6 +211,9 @@ class MCEncodedFragmentWithFixups :
   /// Fixups - The list of fixups in this fragment.
   SmallVector<MCFixup, FixupsSize> Fixups;
 
+  //ztt
+  SmallVector<MCFixup, FixupsSize> AddedFixups;
+
 protected:
   MCEncodedFragmentWithFixups(MCFragment::FragmentType FType,
                               bool HasInstructions,
@@ -224,6 +227,11 @@ public:
 
   SmallVectorImpl<MCFixup> &getFixups() { return Fixups; }
   const SmallVectorImpl<MCFixup> &getFixups() const { return Fixups; }
+
+  //ztt
+  SmallVectorImpl<MCFixup> &getAddedFixups() { return AddedFixups; }
+  const SmallVectorImpl<MCFixup> &getAddedFixups() const { return AddedFixups; }
+
 
   fixup_iterator fixup_begin() { return Fixups.begin(); }
   const_fixup_iterator fixup_begin() const { return Fixups.begin(); }
@@ -243,7 +251,7 @@ public:
 class MCDataFragment : public MCEncodedFragmentWithFixups<32, 4> {
 protected:
   std::string ParentID;
-  
+
 public:
   MCDataFragment(MCSection *Sec = nullptr)
       : MCEncodedFragmentWithFixups<32, 4>(FT_Data, false, Sec) {}

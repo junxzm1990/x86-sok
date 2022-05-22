@@ -37,13 +37,14 @@ STATISTIC(MCExprEvaluate, "Number of MCExpr evaluations");
 } // end namespace stats
 } // end anonymous namespace
 
-void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
+
+const MCExpr *MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
   switch (getKind()) {
   case MCExpr::Target:
     return cast<MCTargetExpr>(this)->printImpl(OS, MAI);
   case MCExpr::Constant:
     OS << cast<MCConstantExpr>(*this).getValue();
-    return;
+    return NULL;
 
   case MCExpr::SymbolRef: {
     const MCSymbolRefExpr &SRE = cast<MCSymbolRefExpr>(*this);
@@ -62,7 +63,7 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
     if (SRE.getKind() != MCSymbolRefExpr::VK_None)
       SRE.printVariantKind(OS);
 
-    return;
+    return NULL;
   }
 
   case MCExpr::Unary: {
@@ -74,7 +75,7 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
     case MCUnaryExpr::Plus:  OS << '+'; break;
     }
     UE.getSubExpr()->print(OS, MAI);
-    return;
+    return NULL;
   }
 
   case MCExpr::Binary: {
@@ -95,7 +96,7 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
       if (const MCConstantExpr *RHSC = dyn_cast<MCConstantExpr>(BE.getRHS())) {
         if (RHSC->getValue() < 0) {
           OS << RHSC->getValue();
-          return;
+          return NULL;
         }
       }
 
@@ -129,19 +130,19 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
       BE.getRHS()->print(OS, MAI);
       OS << ')';
     }
-    return;
+    return NULL;
   }
   }
 
   llvm_unreachable("Invalid expression kind!");
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MCExpr::dump() const {
   dbgs() << *this;
   dbgs() << '\n';
 }
-#endif
+// #endif
 
 /* *** */
 
