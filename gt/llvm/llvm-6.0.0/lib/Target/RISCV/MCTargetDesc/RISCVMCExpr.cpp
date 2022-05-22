@@ -30,13 +30,14 @@ const RISCVMCExpr *RISCVMCExpr::create(const MCExpr *Expr, VariantKind Kind,
   return new (Ctx) RISCVMCExpr(Expr, Kind);
 }
 
-void RISCVMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+const MCExpr *RISCVMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   bool HasVariant = getKind() != VK_RISCV_None;
   if (HasVariant)
     OS << '%' << getVariantKindName(getKind()) << '(';
   Expr->print(OS, MAI);
   if (HasVariant)
     OS << ')';
+  return NULL;
 }
 
 bool RISCVMCExpr::evaluateAsRelocatableImpl(MCValue &Res,

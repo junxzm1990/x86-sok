@@ -4532,6 +4532,7 @@ SDValue AArch64TargetLowering::LowerJumpTable(SDValue Op,
                                               SelectionDAG &DAG) const {
   // Jump table entries as PC relative offsets. No additional tweaking
   // is necessary here. Just get the address of the jump table.
+  //printf("Now is LowerJumpTable Function\n");
   JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
 
   if (getTargetMachine().getCodeModel() == CodeModel::Large &&

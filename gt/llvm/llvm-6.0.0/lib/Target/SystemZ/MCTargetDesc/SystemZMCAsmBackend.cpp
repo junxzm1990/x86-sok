@@ -68,7 +68,7 @@ public:
   }
   bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
   
-  unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+  unsigned getFixupKindSize(unsigned Kind) const override { return 0; } // Koo [N/A Here]
   
   std::unique_ptr<MCObjectWriter>
   createObjectWriter(raw_pwrite_stream &OS) const override {

@@ -35,6 +35,8 @@
 
 #include "dwarf2dbg.h"
 
+#include "bbInfoHandle.h" // binpang.add
+
 /* Types of processor to assemble for.  */
 #ifndef CPU_DEFAULT
 #define CPU_DEFAULT AARCH64_ARCH_V8
@@ -4125,11 +4127,19 @@ fix_new_aarch64 (fragS * frag,
     case O_add:
     case O_subtract:
       new_fix = fix_new_exp (frag, where, size, exp, pc_rel, reloc);
+      // binpang, add
+      // update the basic block's fix number
+      if (mbbs_list_tail)
+        mbbs_list_tail->num_fixs++;
+
       break;
 
     default:
       new_fix = fix_new (frag, where, size, make_expr_symbol (exp), 0,
 			 pc_rel, reloc);
+      // binpang, add
+      if (mbbs_list_tail)
+        mbbs_list_tail->num_fixs++;
       break;
     }
   return new_fix;
@@ -4786,6 +4796,56 @@ get_aarch64_insn (char *buf)
 static void
 output_inst (struct aarch64_inst *new_inst)
 {
+
+  // binpang. add
+  fragS *insn_start_frag;
+  offsetT insn_start_off;
+  uint32_t bbinfo_init_bb = 0;
+
+  insn_start_frag = frag_now;
+  insn_start_off = frag_now_fix();
+  insn_start_frag->last_bb = mbbs_list_tail;
+  if (mbbs_list_tail && mbbs_list_tail->is_begin) {
+    mbbs_list_tail->is_begin = 0;
+    mbbs_list_tail->offset = insn_start_off;
+    mbbs_list_tail->parent_frag = insn_start_frag;
+
+    if (bbinfo_app) {
+      mbbs_list_tail->is_inline = 1;
+    }
+  }
+
+  if (bbinfo_handwritten_file) {
+    if (!mbbs_list_tail) {
+      bbinfo_initbb_handwritten();
+      mbbs_list_tail->is_begin = 0;
+      mbbs_list_tail->offset = insn_start_off;
+      mbbs_list_tail->parent_frag = insn_start_frag;
+      bbinfo_last_frag = insn_start_frag;
+      insn_start_frag->last_bb = mbbs_list_tail;
+    }
+    // create a new `fake` basic block
+    else if (bbinfo_last_frag != insn_start_frag ||
+            (bbinfo_last_inst_offset + bbinfo_last_inst_size) != insn_start_off) {
+              bbinfo_initbb_handwritten();
+              mbbs_list_tail->is_begin = 0;
+              mbbs_list_tail->offset = insn_start_off;
+              mbbs_list_tail->parent_frag = insn_start_frag;
+              insn_start_frag->last_bb = mbbs_list_tail;
+              bbinfo_last_frag = insn_start_frag;
+      }
+      bbinfo_last_inst_offset = insn_start_off;
+  }
+
+  frag_now->last_bb = mbbs_list_tail;
+  if (mbbs_list_tail) {
+    mbbs_list_tail->size += INSN_SIZE;
+  }
+
+  if (bbinfo_handwritten_file) {
+    bbinfo_last_inst_size = INSN_SIZE;
+  }
+
   char *to = NULL;
 
   to = frag_more (INSN_SIZE);
@@ -6978,6 +7038,9 @@ aarch64_handle_align (fragS * fragP)
       memset (p, 0, fix);
       p += fix;
       fragP->fr_fix += fix;
+
+      // binpang. add
+      fragP->last_bb_added_fix_size += fix;
     }
 
   if (noop_size)
@@ -7919,6 +7982,11 @@ cons_fix_new_aarch64 (fragS * frag, int where, int size, expressionS * exp)
     }
 
   fix_new_exp (frag, where, (int) size, exp, pcrel, type);
+
+  // binpang. add
+  if (frag->last_bb) {
+    frag->last_bb->num_fixs++;
+  }
 }
 
 int

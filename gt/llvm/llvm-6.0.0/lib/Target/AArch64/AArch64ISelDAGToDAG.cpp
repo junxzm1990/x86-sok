@@ -23,6 +23,11 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
+
+
+//ztt add refer to Koo X86ISelDAGToDAG.cpp
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
 
 using namespace llvm;
 
@@ -55,7 +60,13 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override {
     ForCodeSize = MF.getFunction().optForSize();
     Subtarget = &MF.getSubtarget<AArch64Subtarget>();
-    return SelectionDAGISel::runOnMachineFunction(MF);
+    bool temp = SelectionDAGISel::runOnMachineFunction(MF);
+    
+    //ztt add refer to X86ISelDAGToDAG.cpp L181
+    MachineJumpTableInfo *MJTI = MF.getJumpTableInfo();
+    if (MJTI)
+      MF.RecordMachineJumpTableInfo(MJTI);
+    return temp;
   }
 
   void Select(SDNode *Node) override;

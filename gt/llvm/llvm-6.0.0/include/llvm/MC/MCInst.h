@@ -161,12 +161,20 @@ class MCInst {
   unsigned Opcode = 0;
   SMLoc Loc;
   SmallVector<MCOperand, 8> Operands;
-  
+
+
+  //ztt
+  mutable bool special_mode = false;
+  mutable unsigned JumpTableSize = 0;
+
   // Koo
   mutable unsigned byteCtr = 0;
   mutable unsigned fixupCtr = 0;
   std::string ParentID;
-  
+
+  //ztt
+  std::string TableSymName;
+
   // These flags could be used to pass some info from one target subcomponent
   // to another, for example, from disassembler to asm printer. The values of
   // the flags have any sense on target level only (e.g. prefixes on x86).
@@ -205,16 +213,28 @@ public:
     return Operands.insert(I, Op);
   }
 
+  //ztt
+  void setSpecialMode(bool Mode) const {special_mode = Mode; }
+  bool getSpecialMode() const {return special_mode; }
+
   // Koo: Use the followings when RelaxableFragment ends up not with being relaxed
+
   void setByteCtr(unsigned numBytes) const { byteCtr = numBytes; }
   unsigned getByteCtr() const { return byteCtr; }
   void setFixupCtr(unsigned numFixups) const { fixupCtr = numFixups; }
   unsigned getFixupCtr() const { return fixupCtr; }
-  
+
   // Koo: Set the parent ID of this MCInst: "MFID_MBBID"
   void setParent(std::string P) { ParentID = P; }
   const std::string getParent() const { return ParentID; }
-  
+
+  //ztt； to handle the tbb and tbh
+  void setJumpTable(int sz) { JumpTableSize =  sz;}
+  unsigned getJumpTable() const { return JumpTableSize; }
+  void setTableSymName(std::string P) { TableSymName = P; }
+  const std::string getTableSymName() const { return TableSymName; }
+
+
   void print(raw_ostream &OS) const;
   void dump() const;
 

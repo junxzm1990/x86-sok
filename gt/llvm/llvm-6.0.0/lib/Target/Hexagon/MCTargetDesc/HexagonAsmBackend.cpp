@@ -536,7 +536,7 @@ public:
           dbgs() << ": NInst=0x"; dbgs().write_hex(NewData) << "\n";);
   }
   
-  unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+  unsigned getFixupKindSize(unsigned Kind) const override { return 0; } // Koo [N/A Here]
 
   bool isInstRelaxable(MCInst const &HMI) const {
     const MCInstrDesc &MCID = HexagonMCInstrInfo::getDesc(*MCII, HMI);

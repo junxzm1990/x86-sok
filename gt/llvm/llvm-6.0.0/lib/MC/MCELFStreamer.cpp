@@ -41,6 +41,7 @@
 #include <tuple>
 #include <string>
 
+
 using namespace llvm;
 
 MCELFStreamer::MCELFStreamer(MCContext &Context,
@@ -487,7 +488,17 @@ void MCELFStreamer::EmitInstToFragment(const MCInst &Inst,
   //     Thus updateByteCounter() collect the final bytes at MCAssembler::relaxInstruction()
   //     after it determines the need of the instruction relaxation and have it done.
 }
-
+//ztt
+void DebugExprKind(MCExpr::ExprKind kind) {
+  switch(kind){
+      case MCExpr::SymbolRef: printf("Fixup kind is MCExpr::SymbolRef\n");break;
+      case MCExpr::Binary: printf("Fixup kind is MCExpr::Binary\n");break;
+      case MCExpr::Constant: printf("Fixup kind is MCExpr::Constant\n");break;
+      case MCExpr::Unary: printf("Fixup kind is MCExpr::Unary\n");break;
+      case MCExpr::Target: printf("Fixup kind is MCExpr::Target\n");break;
+      default: printf("Fixup kind is undefined type\n");break;
+    }
+}
 void MCELFStreamer::EmitInstToData(const MCInst &Inst,
                                    const MCSubtargetInfo &STI) {
   MCAssembler &Assembler = getAssembler();
@@ -499,9 +510,13 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   // Koo: Obtain the parent of this instruction (MFID_MBBID)
   std::string ID = Inst.getParent();
 
+  // ztt add to handle the special mode
+
+
+  // If the destination is an immediate, we have nothing to do.
+
   for (unsigned i = 0, e = Fixups.size(); i != e; ++i)
     fixSymbolsInTLSFixups(Fixups[i].getValue());
-
   // There are several possibilities here:
   //
   // If bundling is disabled, append the encoded instruction to the current data
@@ -560,18 +575,20 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   } else {
     DF = getOrCreateDataFragment();
   }
-
+  // printf("Fixup size is %d\n",Fixups.size());
   // Add the fixups and data.
+
   for (unsigned i = 0, e = Fixups.size(); i != e; ++i) {
     Fixups[i].setOffset(Fixups[i].getOffset() + DF->getContents().size());
     // Koo
     Fixups[i].setFixupParentID(ID);
     const MCExpr *FixupExpr = Fixups[i].getValue();
     std::string SymName;
-    
-    // FIXME: This is obviously not a good implementation this way but... 
+
+    // FIXME: This is obviously not a good implementation this way but...
+    std::string JTPrefix = ".LJTI";
+    std::string JTPrefix2 = "$JTI";
     if (FixupExpr->getKind() == MCExpr::SymbolRef || FixupExpr->getKind() == MCExpr::Binary) {
-      std::string JTPrefix = ".LJTI";
       if (FixupExpr->getKind() == MCExpr::SymbolRef) {
         const MCSymbolRefExpr &SRE1 = cast<MCSymbolRefExpr>(*FixupExpr);
         const MCSymbol &Sym1 = SRE1.getSymbol();
@@ -589,17 +606,73 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
           SymName = Sym2.getName().str();
         }
       }
-      
       // Update the symbol reference for JT only for now.
-      if (SymName.find(JTPrefix) != std::string::npos) {
+     if (SymName.find(JTPrefix) != std::string::npos) {
+        //printf("\nSymbolRef: Successfully update target kind fixup with .LJTI\n");
         Fixups[i].setIsJumpTableRef(true);
         Fixups[i].setSymbolRefFixupName(SymName.substr(JTPrefix.length(), SymName.length()));
+      } else if (SymName.find(JTPrefix2) != std::string::npos) {
+         Fixups[i].setIsJumpTableRef(true);
+        Fixups[i].setSymbolRefFixupName(SymName.substr(JTPrefix2.length(), SymName.length()));
       }
+    }
+    //ztt
+    if (FixupExpr->getKind() == MCExpr::Target)
+    {
+        // // debug
+        // FixupExpr->dump();
+        // errs() << "Kind is " << FixupExpr->getKind() << "\n";
+
+        std::string str_debug;
+        llvm::raw_string_ostream OS(str_debug);
+        const MCAsmInfo *MAIDebug = Assembler.getContext().getAsmInfo();
+        const MCExpr *FixupSubExp = FixupExpr->print(OS,MAIDebug);
+
+        if(FixupSubExp != NULL && FixupSubExp->getKind() == MCExpr::SymbolRef)
+        {
+          const MCSymbolRefExpr &SRE1 = cast<MCSymbolRefExpr>(*FixupSubExp);
+          const MCSymbol &SubSym1 = SRE1.getSymbol();
+          SymName = SubSym1.getName().str();
+          if (SymName.find(JTPrefix) != std::string::npos) {
+        //printf("\nSymbolRef: Successfully update target kind fixup with .LJTI\n");
+          Fixups[i].setIsJumpTableRef(true);
+          Fixups[i].setSymbolRefFixupName(SymName.substr(JTPrefix.length(), SymName.length()));
+        } else if (SymName.find(JTPrefix2) != std::string::npos) {
+          Fixups[i].setIsJumpTableRef(true);
+          Fixups[i].setSymbolRefFixupName(SymName.substr(JTPrefix2.length(), SymName.length()));
+      }
+        }
+
     }
     DF->getFixups().push_back(Fixups[i]);
   }
-  
+
+  //ztt add to handle tbb / tbh
+  if(Inst.getJumpTable() != 0)
+  {
+    //Inst.dump();
+
+    const MCOperand &MO = Inst.getOperand(0);
+    const MCExpr *Expr = MO.getExpr();
+    MCFixupKind Kind = MCFixupKind(Inst.getJumpTable() - 1);
+    Fixups.push_back(MCFixup::create(0, Expr, Kind, Inst.getLoc()));
+    unsigned now = Fixups.size()- 1;
+
+    Fixups[now].setOffset(Fixups[now].getOffset() + DF->getContents().size());
+
+    Fixups[now].setFixupParentID(ID);
+    Fixups[now].setIsJumpTableRef(true);
+
+    std::string SymName = Inst.getTableSymName();
+
+    Fixups[now].setSymbolRefFixupName(SymName);
+    // printf("Added Jumptable for 0x%x: %s\n",Fixups[now].getOffset(),Fixups[now].getSymbolRefFixupName().c_str());
+    DF->getAddedFixups().push_back(Fixups[now]);
+  }
+
+
   DF->setHasInstructions(true);
+  unsigned FragOffset = DF->getContents().size();
   DF->getContents().append(Code.begin(), Code.end());
 
   // Koo: Here combines the emitted data as MCDataFragment
@@ -608,23 +681,30 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   unsigned EmittedBytes = Code.size();
   const MCAsmInfo *MAI = Assembler.getContext().getAsmInfo();
   unsigned numFixups = Fixups.size();
-  
+
   // Sometimes there exists the instruction with missing parentID (!!!!)
   // Another corner case: However, we need to update the emitted bytes anyways
   // For example, "cld; rep; stosq\n" emits 0xFC, (0xF3, 0x48), and 0xAB respectively with no parentID
   if (ID.length() == 0)
     ID = MAI->latestParentID;
-
   DF->setLastParentTag(ID);
   DF->addMachineBasicBlockTag(ID);
-  MAI->updateByteCounter(ID, EmittedBytes, numFixups, /*isAlign=*/ false, /*isInline=*/ false);
+  bool SpecialMode = STI.getSpecialMode();
+  //ztt update here!
+  //printf("%s\n",ID.c_str());
+  bool initFlag = MAI->updateByteCounter(ID, EmittedBytes, numFixups, /*isAlign=*/ false, /*isInline=*/ false, /*isSpecialMode*/SpecialMode);
+
+  //ztt add
+  if(initFlag)
+    MAI->updateOffset(ID,FragOffset);
+
 
   unsigned size, offset, fixups, alignments, type, tmpAssembleType;
   std::string sectionName;
   std::tie(size, offset, fixups, alignments, type, sectionName, tmpAssembleType) = MAI->MachineBasicBlocks[ID];
-  
+
   MAI->latestParentID = ID;
-  
+
   if (Assembler.isBundlingEnabled() && Assembler.getRelaxAll()) {
     if (!isBundleLocked()) {
       mergeFragment(getOrCreateDataFragment(), DF);

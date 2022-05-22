@@ -50,6 +50,8 @@
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
+#include <sstream> //ztt
+
 #define DEBUG_TYPE "asm-printer"
 
 ARMAsmPrinter::ARMAsmPrinter(TargetMachine &TM,
@@ -98,6 +100,16 @@ void ARMAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     // The global was promoted into a constant pool. It should not be emitted.
     return;
   AsmPrinter::EmitGlobalVariable(GV);
+}
+
+std::string GetMBBInst(const MachineInstr *MI)
+{
+  const MachineBasicBlock *MBB = MI->getParent();
+  unsigned MBBID = MBB->getNumber();
+  unsigned MFID = MBB->getParent()->getFunctionNumber();
+  std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+  //MBB->dump();
+  return ID;
 }
 
 /// runOnMachineFunction - This uses the EmitInstruction()
@@ -163,6 +175,8 @@ bool ARMAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   // Emit the XRay table for this function.
   emitXRayTable();
 
+
+  // TODO(ztt) need to set parent here
   // If we need V4T thumb mode Register Indirect Jump pads, emit them.
   // These are created per function, rather than per TU, since it's
   // relatively easy to exceed the thumb branch range within a TU.
@@ -931,7 +945,9 @@ void ARMAsmPrinter::EmitJumpTableAddrs(const MachineInstr *MI) {
   EmitAlignment(2);
 
   // Emit a label for the jump table.
+  // MI->dump();
   MCSymbol *JTISymbol = GetARMJTIPICJumpTableLabel(JTI);
+  // printf("Symbol Name is %s\n",JTISymbol->getName().str().c_str());
   OutStreamer->EmitLabel(JTISymbol);
 
   // Mark the jump table as data-in-code.
@@ -976,8 +992,10 @@ void ARMAsmPrinter::EmitJumpTableInsts(const MachineInstr *MI) {
   // ARM mode tables.
   EmitAlignment(2);
 
+  //MI->dump();
   // Emit a label for the jump table.
   MCSymbol *JTISymbol = GetARMJTIPICJumpTableLabel(JTI);
+  //printf("Symbol Name is %s\n",JTISymbol->getName().str().c_str());
   OutStreamer->EmitLabel(JTISymbol);
 
   // Emit each entry of the table.
@@ -992,22 +1010,24 @@ void ARMAsmPrinter::EmitJumpTableInsts(const MachineInstr *MI) {
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::t2B)
         .addExpr(MBBSymbolExpr)
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
   }
 }
 
 void ARMAsmPrinter::EmitJumpTableTBInst(const MachineInstr *MI,
                                         unsigned OffsetWidth) {
+  //MI->dump();
   assert((OffsetWidth == 1 || OffsetWidth == 2) && "invalid tbb/tbh width");
   const MachineOperand &MO1 = MI->getOperand(1);
   unsigned JTI = MO1.getIndex();
 
   if (Subtarget->isThumb1Only())
     EmitAlignment(2);
-  
+
   MCSymbol *JTISymbol = GetARMJTIPICJumpTableLabel(JTI);
   OutStreamer->EmitLabel(JTISymbol);
-
+  //printf("Now Symbol name is %s",JTISymbol->getName().str().c_str());
   // Emit each entry of the table.
   const MachineJumpTableInfo *MJTI = MF->getJumpTableInfo();
   const std::vector<MachineJumpTableEntry> &JT = MJTI->getJumpTables();
@@ -1194,8 +1214,27 @@ void ARMAsmPrinter::EmitUnwindingInstruction(const MachineInstr *MI) {
 // Simple pseudo-instructions have their lowering (with expansion to real
 // instructions) auto-generated.
 #include "ARMGenMCPseudoLowering.inc"
-
+//#define T_DEBUG true
 void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
+
+  //MI->dump();
+  #ifdef T_DEBUG
+  {
+    MI->dump();
+    const MachineBasicBlock *MBB = MI->getParent();
+    unsigned MBBID = MBB->getNumber();
+    unsigned MFID = MBB->getParent()->getFunctionNumber();
+    std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
+    dbgs() << ID << "\n";
+  }
+  #endif
+
+  const MCAsmInfo *MAI = getMCAsmInfo();
+  std::string ID_tmp = GetMBBInst(MI);
+  if (MAI->canMBBFallThrough.count(ID_tmp) == 0)
+    MAI->canMBBFallThrough[ID_tmp] = MF->canMBBFallThrough[ID_tmp];
+  MAI->latestParentID = ID_tmp;
+
   const DataLayout &DL = getDataLayout();
   MCTargetStreamer &TS = *OutStreamer->getTargetStreamer();
   ARMTargetStreamer &ATS = static_cast<ARMTargetStreamer &>(TS);
@@ -1216,14 +1255,20 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     EmitUnwindingInstruction(MI);
 
   // Do any auto-generated pseudo lowerings.
-  if (emitPseudoExpansionLowering(*OutStreamer, MI))
-    return;
-
+  if (emitPseudoExpansionLowering(*OutStreamer, MI)){
+    	  //MI->dump();
+	  return;
+  }
+  //MI->dump();
   assert(!convertAddSubFlagsOpcode(MI->getOpcode()) &&
          "Pseudo flag setting opcode should be expanded early");
 
+
   // Check for manual lowerings.
   unsigned Opc = MI->getOpcode();
+
+  std::string id_tmp1 = GetMBBInst(MI);
+
   switch (Opc) {
   case ARM::t2MOVi32imm: llvm_unreachable("Should be lowered by thumb2it pass");
   case ARM::DBG_VALUE: llvm_unreachable("Should be handled by generic printing");
@@ -1240,7 +1285,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addExpr(MCSymbolRefExpr::create(CPISymbol, OutContext))
       // Add predicate operands.
       .addImm(MI->getOperand(2).getImm())
-      .addReg(MI->getOperand(3).getReg()));
+      .addReg(MI->getOperand(3).getReg())
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::LEApcrelJT:
@@ -1256,7 +1302,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addExpr(MCSymbolRefExpr::create(JTIPICSymbol, OutContext))
       // Add predicate operands.
       .addImm(MI->getOperand(2).getImm())
-      .addReg(MI->getOperand(3).getReg()));
+      .addReg(MI->getOperand(3).getReg())
+      .setParent(GetMBBInst(MI)));
     return;
   }
   // Darwin call instructions are just normal call instructions with different
@@ -1269,11 +1316,13 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // Add 's' bit operand (always reg0 for this)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     assert(Subtarget->hasV4TOps());
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::BX)
-      .addReg(MI->getOperand(0).getReg()));
+      .addReg(MI->getOperand(0).getReg())
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::tBX_CALL: {
@@ -1304,7 +1353,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tBL)
         // Predicate comes first here.
         .addImm(ARMCC::AL).addReg(0)
-        .addExpr(MCSymbolRefExpr::create(TRegSym, OutContext)));
+        .addExpr(MCSymbolRefExpr::create(TRegSym, OutContext))
+        .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::BMOVPCRX_CALL: {
@@ -1315,7 +1365,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // Add 's' bit operand (always reg0 for this)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::MOVr)
       .addReg(ARM::PC)
@@ -1324,7 +1375,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // Add 's' bit operand (always reg0 for this)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::BMOVPCB_CALL: {
@@ -1335,7 +1387,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // Add 's' bit operand (always reg0 for this)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     const MachineOperand &Op = MI->getOperand(0);
     const GlobalValue *GV = Op.getGlobal();
@@ -1346,12 +1399,27 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addExpr(GVSymExpr)
       // Add predicate operands.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::MOVi16_ga_pcrel:
   case ARM::t2MOVi16_ga_pcrel: {
     MCInst TmpInst;
+
+    //ztt add
+    std::string ID = GetMBBInst(MI);
+    TmpInst.setParent(ID);
+
+    //MI->dump();
+    //printf("Now MBB is %s\n",ID.c_str());
+
+    // const MCAsmInfo *MAI = getMCAsmInfo();
+    // if (MAI->canMBBFallThrough.count(ID) == 0)
+    //   MAI->canMBBFallThrough[ID] = MF.canMBBFallThrough[ID];
+    // MAI->latestParentID = ID;
+
+
     TmpInst.setOpcode(Opc == ARM::MOVi16_ga_pcrel? ARM::MOVi16 : ARM::t2MOVi16);
     TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
 
@@ -1383,6 +1451,19 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   case ARM::MOVTi16_ga_pcrel:
   case ARM::t2MOVTi16_ga_pcrel: {
     MCInst TmpInst;
+
+    //ztt add
+    std::string ID = GetMBBInst(MI);
+    TmpInst.setParent(ID);
+
+    //MI->dump();
+    //printf("Now MBB is %s\n",ID.c_str());
+
+    // const MCAsmInfo *MAI = getMCAsmInfo();
+    // if (MAI->canMBBFallThrough.count(ID) == 0)
+    //   MAI->canMBBFallThrough[ID] = MF.canMBBFallThrough[ID];
+    // MAI->latestParentID = ID;
+
     TmpInst.setOpcode(Opc == ARM::MOVTi16_ga_pcrel
                       ? ARM::MOVTi16 : ARM::t2MOVTi16);
     TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
@@ -1430,7 +1511,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addReg(ARM::PC)
       // Add predicate operands.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::PICADD: {
@@ -1453,7 +1535,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(MI->getOperand(3).getImm())
       .addReg(MI->getOperand(4).getReg())
       // Add 's' bit operand (always reg0 for this)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::PICSTR:
@@ -1496,7 +1579,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(0)
       // Add predicate operands.
       .addImm(MI->getOperand(3).getImm())
-      .addReg(MI->getOperand(4).getReg()));
+      .addReg(MI->getOperand(4).getReg())
+      .setParent(GetMBBInst(MI)));
 
     return;
   }
@@ -1543,7 +1627,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addReg(MI->getOperand(0).getReg())
       // Add predicate operands.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::t2TBB_JT:
@@ -1551,12 +1636,27 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     unsigned Opc = MI->getOpcode() == ARM::t2TBB_JT ? ARM::t2TBB : ARM::t2TBH;
     // Lower and emit the PC label, then the instruction itself.
     OutStreamer->EmitLabel(GetCPISymbol(MI->getOperand(3).getImm()));
+    // MI->dump();
+    unsigned sz = 1;
+    std::ostringstream s1;
+    s1 << getFunctionNumber() << "_" << MI->getOperand(2).getImm();
+    // const MachineOperand &MO1 = MI->getOperand(1);
+    // unsigned JTI = MO1.getIndex();
+    // MCSymbol *JTISymbol = GetARMJTIPICJumpTableLabel(JTI);
+    // printf("Symbol Name is %s\n",JTISymbol->getName().str().c_str());
+    
+    if(Opc == ARM::t2TBH)
+      sz = 2;
     EmitToStreamer(*OutStreamer, MCInstBuilder(Opc)
-                                     .addReg(MI->getOperand(0).getReg())
-                                     .addReg(MI->getOperand(1).getReg())
-                                     // Add predicate operands.
-                                     .addImm(ARMCC::AL)
-                                     .addReg(0));
+                                      .addReg(MI->getOperand(0).getReg())
+                                      .addReg(MI->getOperand(1).getReg())
+                                      // Add predicate operands.
+                                      .addImm(ARMCC::AL)
+                                      .addReg(0)
+                                      .setParent(GetMBBInst(MI))
+                                      .setJumpTable(sz)
+                                      .setTableSymName(s1.str()));
+
     return;
   }
   case ARM::tTBB_JT:
@@ -1576,7 +1676,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                        .addImm(1)
                                        // Add predicate operands.
                                        .addImm(ARMCC::AL)
-                                       .addReg(0));
+                                       .addReg(0)
+                                       .setParent(GetMBBInst(MI)));
 
     if (Base == ARM::PC) {
       // TBB [base, idx] =
@@ -1599,7 +1700,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                        .addReg(Base)
                                        // Add predicate operands.
                                        .addImm(ARMCC::AL)
-                                       .addReg(0));
+                                       .addReg(0)
+                                       .setParent(GetMBBInst(MI)));
 
       unsigned Opc = Is8Bit ? ARM::tLDRBi : ARM::tLDRHi;
       EmitToStreamer(*OutStreamer, MCInstBuilder(Opc)
@@ -1608,7 +1710,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                        .addImm(Is8Bit ? 4 : 2)
                                        // Add predicate operands.
                                        .addImm(ARMCC::AL)
-                                       .addReg(0));
+                                       .addReg(0)
+                                       .setParent(GetMBBInst(MI)));
     } else {
       // TBB [base, idx] =
       //    LDRB idx, [base, idx] ; or LDRH if TBH
@@ -1622,7 +1725,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                        .addReg(Idx)
                                        // Add predicate operands.
                                        .addImm(ARMCC::AL)
-                                       .addReg(0));
+                                       .addReg(0)
+                                       .setParent(GetMBBInst(MI)));
     }
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLSLri)
@@ -1632,7 +1736,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                      .addImm(1)
                                      // Add predicate operands.
                                      .addImm(ARMCC::AL)
-                                     .addReg(0));
+                                     .addReg(0)
+                                     .setParent(GetMBBInst(MI)));
 
     OutStreamer->EmitLabel(GetCPISymbol(MI->getOperand(3).getImm()));
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tADDhirr)
@@ -1641,13 +1746,27 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                      .addReg(Idx)
                                      // Add predicate operands.
                                      .addImm(ARMCC::AL)
-                                     .addReg(0));
+                                     .addReg(0)
+                                     .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::tBR_JTr:
   case ARM::BR_JTr: {
     // mov pc, target
     MCInst TmpInst;
+
+    //ztt add
+    std::string ID = GetMBBInst(MI);
+    TmpInst.setParent(ID);
+
+    //MI->dump();
+    //printf("Now MBB is %s\n",ID.c_str());
+
+    // const MCAsmInfo *MAI = getMCAsmInfo();
+    // if (MAI->canMBBFallThrough.count(ID) == 0)
+    //   MAI->canMBBFallThrough[ID] = MF.canMBBFallThrough[ID];
+    // MAI->latestParentID = ID;
+
     unsigned Opc = MI->getOpcode() == ARM::BR_JTr ?
       ARM::MOVr : ARM::tMOVr;
     TmpInst.setOpcode(Opc);
@@ -1665,6 +1784,19 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   case ARM::BR_JTm_i12: {
     // ldr pc, target
     MCInst TmpInst;
+
+    //ztt add
+    std::string ID = GetMBBInst(MI);
+    TmpInst.setParent(ID);
+
+    //MI->dump();
+    //printf("Now MBB is %s\n",ID.c_str());
+
+    // const MCAsmInfo *MAI = getMCAsmInfo();
+    // if (MAI->canMBBFallThrough.count(ID) == 0)
+    //   MAI->canMBBFallThrough[ID] = MF.canMBBFallThrough[ID];
+    // MAI->latestParentID = ID;
+
     TmpInst.setOpcode(ARM::LDRi12);
     TmpInst.addOperand(MCOperand::createReg(ARM::PC));
     TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
@@ -1678,6 +1810,19 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   case ARM::BR_JTm_rs: {
     // ldr pc, target
     MCInst TmpInst;
+
+    //ztt add
+    std::string ID = GetMBBInst(MI);
+    TmpInst.setParent(ID);
+
+    //MI->dump();
+    //printf("Now MBB is %s\n",ID.c_str());
+
+    // const MCAsmInfo *MAI = getMCAsmInfo();
+    // if (MAI->canMBBFallThrough.count(ID) == 0)
+    //   MAI->canMBBFallThrough[ID] = MF.canMBBFallThrough[ID];
+    // MAI->latestParentID = ID;
+
     TmpInst.setOpcode(ARM::LDRrs);
     TmpInst.addOperand(MCOperand::createReg(ARM::PC));
     TmpInst.addOperand(MCOperand::createReg(MI->getOperand(0).getReg()));
@@ -1699,10 +1844,13 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // Add 's' bit operand (always reg0 for this)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::SPACE:
+
+    OutStreamer->getContext().getAsmInfo()->updateByteCounter(id_tmp1, MI->getOperand(1).getImm(), 0, false, false, false);
     OutStreamer->EmitZeros(MI->getOperand(1).getImm());
     return;
   case ARM::TRAP: {
@@ -1711,6 +1859,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     if (!Subtarget->isTargetMachO()) {
       uint32_t Val = 0xe7ffdefeUL;
       OutStreamer->AddComment("trap");
+
+      OutStreamer->getContext().getAsmInfo()->updateByteCounter(id_tmp1, 4, 0, false, false, false);
       ATS.emitInst(Val);
       return;
     }
@@ -1719,6 +1869,7 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   case ARM::TRAPNaCl: {
     uint32_t Val = 0xe7fedef0UL;
     OutStreamer->AddComment("trap");
+    OutStreamer->getContext().getAsmInfo()->updateByteCounter(id_tmp1, 4, 0, false, false, false);
     ATS.emitInst(Val);
     return;
   }
@@ -1728,6 +1879,7 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     if (!Subtarget->isTargetMachO()) {
       uint16_t Val = 0xdefe;
       OutStreamer->AddComment("trap");
+      OutStreamer->getContext().getAsmInfo()->updateByteCounter(id_tmp1, 4, 0, false, false, false);
       ATS.emitInst(Val, 'n');
       return;
     }
@@ -1753,7 +1905,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addReg(ARM::PC)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tADDi3)
       .addReg(ValReg)
@@ -1763,7 +1916,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(7)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tSTRi)
       .addReg(ValReg)
@@ -1773,7 +1927,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(1)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tMOVi8)
       .addReg(ARM::R0)
@@ -1781,13 +1936,15 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(0)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     const MCExpr *SymbolExpr = MCSymbolRefExpr::create(Label, OutContext);
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tB)
       .addExpr(SymbolExpr)
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     OutStreamer->AddComment("eh_setjmp end");
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tMOVi8)
@@ -1796,7 +1953,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(1)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     OutStreamer->EmitLabel(Label);
     return;
@@ -1822,7 +1980,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // 's' bit operand (always reg0 for this).
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::STRi12)
       .addReg(ValReg)
@@ -1830,7 +1989,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(4)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::MOVi)
       .addReg(ARM::R0)
@@ -1839,7 +1999,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // 's' bit operand (always reg0 for this).
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::ADDri)
       .addReg(ARM::PC)
@@ -1849,7 +2010,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // 's' bit operand (always reg0 for this).
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     OutStreamer->AddComment("eh_setjmp end");
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::MOVi)
@@ -1859,7 +2021,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(ARMCC::AL)
       .addReg(0)
       // 's' bit operand (always reg0 for this).
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::Int_eh_sjlj_longjmp: {
@@ -1875,7 +2038,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(8)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::LDRi12)
       .addReg(ScratchReg)
@@ -1883,7 +2047,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(4)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     if (STI.isTargetDarwin() || STI.isTargetWindows()) {
       // These platforms always use the same frame register
@@ -1893,7 +2058,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
         .addImm(0)
         // Predicate.
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
     } else {
       // If the calling code might use either R7 or R11 as
       // frame pointer register, restore it into both.
@@ -1903,14 +2069,16 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
         .addImm(0)
         // Predicate.
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
       EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::LDRi12)
         .addReg(ARM::R11)
         .addReg(SrcReg)
         .addImm(0)
         // Predicate.
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
     }
 
     assert(Subtarget->hasV4TOps());
@@ -1918,7 +2086,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addReg(ScratchReg)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::tInt_eh_sjlj_longjmp: {
@@ -1938,14 +2107,16 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(2)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tMOVr)
       .addReg(ARM::SP)
       .addReg(ScratchReg)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLDRi)
       .addReg(ScratchReg)
@@ -1953,7 +2124,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
       .addImm(1)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
 
     if (STI.isTargetDarwin() || STI.isTargetWindows()) {
       // These platforms always use the same frame register
@@ -1963,7 +2135,8 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
         .addImm(0)
         // Predicate.
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
     } else {
       // If the calling code might use either R7 or R11 as
       // frame pointer register, restore it into both.
@@ -1973,21 +2146,24 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
         .addImm(0)
         // Predicate.
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
       EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tLDRi)
         .addReg(ARM::R11)
         .addReg(SrcReg)
         .addImm(0)
         // Predicate.
         .addImm(ARMCC::AL)
-        .addReg(0));
+        .addReg(0)
+        .setParent(GetMBBInst(MI)));
     }
 
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::tBX)
       .addReg(ScratchReg)
       // Predicate.
       .addImm(ARMCC::AL)
-      .addReg(0));
+      .addReg(0)
+      .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::tInt_WIN_eh_sjlj_longjmp: {
@@ -2003,27 +2179,31 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
                                      .addImm(0)
                                      // Predicate
                                      .addImm(ARMCC::AL)
-                                     .addReg(0));
+                                     .addReg(0)
+                                     .setParent(GetMBBInst(MI)));
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::t2LDRi12)
                                      .addReg(ARM::SP)
                                      .addReg(SrcReg)
                                      .addImm(8)
                                      // Predicate
                                      .addImm(ARMCC::AL)
-                                     .addReg(0));
+                                     .addReg(0)
+                                     .setParent(GetMBBInst(MI)));
     EmitToStreamer(*OutStreamer, MCInstBuilder(ARM::t2LDRi12)
                                      .addReg(ARM::PC)
                                      .addReg(SrcReg)
                                      .addImm(4)
                                      // Predicate
                                      .addImm(ARMCC::AL)
-                                     .addReg(0));
+                                     .addReg(0)
+                                     .setParent(GetMBBInst(MI)));
     return;
   }
   case ARM::PATCHABLE_FUNCTION_ENTER:
     LowerPATCHABLE_FUNCTION_ENTER(*MI);
     return;
   case ARM::PATCHABLE_FUNCTION_EXIT:
+    //MI->dump();
     LowerPATCHABLE_FUNCTION_EXIT(*MI);
     return;
   case ARM::PATCHABLE_TAIL_CALL:
@@ -2032,6 +2212,14 @@ void ARMAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   }
 
   MCInst TmpInst;
+
+  //ztt add
+  std::string ID = GetMBBInst(MI);
+  TmpInst.setParent(ID);
+  //MI->dump();
+  //printf("Now MBB is %s\n",ID.c_str());
+
+
   LowerARMMachineInstrToMCInst(MI, TmpInst, *this);
 
   EmitToStreamer(*OutStreamer, TmpInst);

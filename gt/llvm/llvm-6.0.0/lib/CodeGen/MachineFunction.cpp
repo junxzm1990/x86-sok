@@ -78,6 +78,11 @@
 #include <tuple>
 #include <string>
 
+//ztt
+#include "llvm/Support/raw_ostream.h"
+#include <iostream>
+
+
 using namespace llvm;
 
 #define DEBUG_TYPE "codegen"
@@ -301,11 +306,18 @@ void MachineFunction::RecordMachineJumpTableInfo(MachineJumpTableInfo *MJTI) {
   const std::vector<MachineJumpTableEntry> &JT = MJTI->getJumpTables();
   
   if (!JT.empty()) {
+    /*
+    printf("\nRecordMachineJumpTableInfo\n");
+    raw_ostream &OS = llvm::outs();;
+
+    MJTI->print(OS);
+    printf("\n\n");
+*/
     const MachineModuleInfo &MMI = this->getMMI();
     const MCObjectFileInfo* MOFI = MMI.getMCObjectFileInfo();
     
     if (!MOFI) return;
-        
+
     // Walk through all Jump Tables in this Machine Function
     for (unsigned JTI = 0, e = JT.size(); JTI != e; ++JTI) {
       const std::vector<MachineBasicBlock*> &JTBBs = JT[JTI].MBBs;
@@ -323,6 +335,7 @@ void MachineFunction::RecordMachineJumpTableInfo(MachineJumpTableInfo *MJTI) {
       // Value: <(EntryKind, EntrySize, Entries[MFID_MBBID])>
       unsigned EntryKind = MJTI->getEntryKind();
       unsigned EntrySize = MJTI->getEntrySize(this->getDataLayout());
+      // printf("[binpang]: Before update jumptable: %s: entry kind is %d, size is %d\n", MJTKey.c_str(), EntryKind, EntrySize);
       MOFI->updateJumpTableTargets(MJTKey, EntryKind, EntrySize, JTEntries);
     }
   }

@@ -2212,7 +2212,7 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
       
       if (MAI.assemFuncNo == 0xffffffff) 
         MAI.assemFuncNo = 0;
-        
+      //printf("STI.setParentID L2215\n");
       STI.setParentID(std::to_string(MAI.assemFuncNo) + "_" + std::to_string(MAI.assemBBLNo));
       MAI.latestParentID = STI.getParentID();
     }
@@ -2223,6 +2223,7 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
       // Koo: if opcode starts with "j" that is part of jump family, new BBL begins
       //      is this always reliable? any other case to count BBL?
       if (MAI.isAssemFile && OpcodeStr.find("j") == 0) {
+        //printf("STI.setParentID L2226\n");
         MAI.assemBBLNo++;
         MAI.prevOpcode = OpcodeStr;
       }

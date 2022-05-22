@@ -1,5 +1,7 @@
 *.swp
 *.swo
 build/
+build_arm/
 __pycache__/
 *.pyc
+.cache

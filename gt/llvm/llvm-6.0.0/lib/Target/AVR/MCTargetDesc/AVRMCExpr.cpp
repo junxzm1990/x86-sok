@@ -41,7 +41,7 @@ const AVRMCExpr *AVRMCExpr::create(VariantKind Kind, const MCExpr *Expr,
   return new (Ctx) AVRMCExpr(Kind, Expr, Negated);
 }
 
-void AVRMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
+const MCExpr *AVRMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   assert(Kind != VK_AVR_None);
 
   if (isNegated())
@@ -50,6 +50,7 @@ void AVRMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
   OS << getName() << '(';
   getSubExpr()->print(OS, MAI);
   OS << ')';
+  return NULL;
 }
 
 bool AVRMCExpr::evaluateAsConstant(int64_t &Result) const {

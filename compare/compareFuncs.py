@@ -36,7 +36,136 @@ linker_libc_func = {
                "fstat64",
                "lstat64",
                "fstatat64",
-               "__fstat"
+               "__fstat",
+               "call_weak_fn",
+               "__udivsi3",
+               "__aeabi_uidivmod",
+               "__divsi3",
+               ".divsi3_skip_div0_test",
+               "__aeabi_idivmod",
+               "__aeabi_idiv0",
+               "__aeabi_ldivmod",
+               "__udivmoddi4",
+               "__aeabi_drsub",
+               "__aeabi_dsub",
+               "__adddf3",
+               "__aeabi_ui2d",
+               "__aeabi_i2f",
+               "__aeabi_ul2f",
+               "__aeabi_l2f",
+               "__aeabi_i2d",
+               "__aeabi_f2d",
+               "__arm_set_fast_math",
+               "__divsc3",
+               "__mulsc3",
+               "__aeabi_ul2d",
+               "__aeabi_l2d",
+               "__aeabi_frsub",
+               "__aeabi_fsub",
+               "__addsf3",
+               "__aeabi_ui2f",
+               "__aeabi_uldivmod",
+               "hlt",
+               "__start",
+               "__addtf3",
+               "__divtf3",
+               "__multf3",
+               "__floatunditf",
+               # libc static
+               "ns_name_pton",
+               "__cxa_rethrow",
+               "_Znwm",
+               "__cxa_guard_abort",
+               "__cxa_guard_release",
+               "__cxa_throw_bad_array_new_length",
+               "_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EE",
+               "_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1Ev",
+               "_ZNSt14basic_ifstreamIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode",
+               "_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev",
+               "_Unwind_Resume",
+               "_ZNKSt8__detail20_Prime_rehash_policy11_M_next_bktEm",
+               "_ZSt24__throw_out_of_range_fmtPKcz",
+               "_ZSt20__throw_length_errorPKc",
+               "_ZSt17__throw_bad_allocv",
+               "_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6substrEmm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructIPKcEEvT_S8_St20forward_iterator_tag",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructIPcEEvT_S7_St20forward_iterator_tag",
+               "_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEmmPKc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm",
+               "__subtf3",
+               "__aeabi_d2ulz",
+               "__aeabi_d2lz",
+               "lstat64",
+               "fstat64",
+               "stat64",
+               "__fixtfdi",
+               "__cxx_global_var_init.8",
+               "__mknod",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructEmc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED1Ev",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSERKS4_",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEpLEc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5eraseEmm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4_mm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKcm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEpLEPKc",
+               ### other libs, libc
+               "ns_name_rollback",
+               "ns_name_skip",
+               "__ns_get16",
+               "__ns_get32",
+               "ns_put16",
+               "ns_put32",
+               "binary_hnok",
+               "__dn_expand",
+               "__dn_comp",
+               "__dn_skipname",
+               "__res_hnok",
+               "__res_ownok",
+               "__res_mailok",
+               "__res_dnok",
+               "__putlong",
+               "__putshort",
+               "_getlong",
+               "_getshort",
+               "__res_context_mkquery",
+               "__res_nmkquery",
+               "__res_mkquery",
+               "__res_nopt",
+               "ns_msg_getflag",
+               "ns_skiprr",
+               "ns_initparse",
+               "ns_parserr",
+               "ns_parserr",
+               "__ns_name_ntop",
+               "ns_name_ntol",
+               "__ns_name_unpack",
+               "ns_name_pack",
+               "ns_name_uncompress",
+               "ns_name_compress",
+               "__fixunstfdi",
+               "__eqtf2",
+               "set_fast_math",
+               "__letf2",
+               "__getf2",
+               "__sfp_handle_exceptions",
+               "__lstat",
+               "__fstat",
+               "fstatat",
+               "__floatunsitf",
+               "__extenddftf2",
+               "__floatsitf",
+               "__floatditf",
+               "__unordtf2",
+               "__trunctfsf2",
+               "__trunctfdf2",
+               "__cxx_global_var_init.9",
+               "_GLOBAL__sub_I_step_14.cc"
                }
 def getLinkerFunctionAddr(binary):
     global notIncludedLinkerFunc
@@ -88,15 +217,17 @@ def compareFuncs(groundTruth, compared):
         if func not in compared:
             logging.error("[Func Start False Negative #{0}]:Function Start 0x{1:x} not in compared.".format(falseNegative, func))
             falseNegative += 1
-
-    precision = truePositive / len(compared)
+    precision = None
+    if len(compared) > 0:
+        precision = truePositive / len(compared)
     recall = truePositive / len(groundTruth)
 
     print("[Result]:The total Functions in ground truth is %d" % (len(groundTruth)))
     print("[Result]:The total Functions in compared is %d" % (len(compared)))
     print("[Result]:False positive number is %d" % (falsePositive))
     print("[Result]:False negative number is %d" % (falseNegative))
-    print("[Result]:Precision %f" % precision)
+    if precision is not None:
+        print("[Result]:Precision %f" % precision)
     print("[Result]:Recall %f" % recall)
 
 
@@ -164,7 +295,7 @@ get pie base offset according to the compared file name.
 """
 def getPIEBaseOffset(comparedFile):
     for (tool, base_offset) in BASE_ADDR_MAP.items():
-        if tool in comparedFile:
+        if tool in comparedFile.lower():
             return base_offset
     # default offset is 0
     return 0
@@ -218,7 +349,7 @@ if __name__ == '__main__':
         print("Could not open the file\n")
         exit(-1)
 
-    if "ghidra" in options.comparedfile and PIE:
+    if "ghidra" in options.comparedfile.lower() and PIE:
         doubleCheckGhidraBase(mModule2)
 
     truthFuncs = readFuncs(mModule1, True)

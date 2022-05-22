@@ -779,6 +779,7 @@ Sized_relobj_dwo<size, big_endian>::setup()
 
   this->set_shnum(shnum);
   this->section_offsets().resize(shnum);
+  this->section_offsets_saved().resize(shnum);
 
   // Read the section headers.
   const unsigned char* const pshdrs = this->get_view(shoff, shnum * shdr_size,

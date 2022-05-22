@@ -228,11 +228,11 @@ bool MachineBasicBlock::hasEHPadSuccessor() const {
   return false;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+//#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MachineBasicBlock::dump() const {
   print(dbgs());
 }
-#endif
+//#endif
 
 bool MachineBasicBlock::isLegalToHoistInto() const {
   if (isReturnBlock() || hasEHPadSuccessor())

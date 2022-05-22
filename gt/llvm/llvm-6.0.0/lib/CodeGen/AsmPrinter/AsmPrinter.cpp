@@ -1573,8 +1573,11 @@ void AsmPrinter::EmitJumpTableInfo() {
   if (!MJTI) return;
   if (MJTI->getEntryKind() == MachineJumpTableInfo::EK_Inline) return;
   const std::vector<MachineJumpTableEntry> &JT = MJTI->getJumpTables();
-  if (JT.empty()) return;
-
+  if (JT.empty()) 
+  {  
+    return;
+  }
+  //printf("Jumptable is ok!\n");
   // Pick the directive to use to print the jump table entries, and switch to
   // the appropriate section.
   const Function &F = MF->getFunction();
@@ -1647,6 +1650,7 @@ void AsmPrinter::EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                                     unsigned UID) const {
   assert(MBB && MBB->getNumber() >= 0 && "Invalid basic block");
   const MCExpr *Value = nullptr;
+  //printf("now find the entry kind!\n");
   switch (MJTI->getEntryKind()) {
   case MachineJumpTableInfo::EK_Inline:
     llvm_unreachable("Cannot emit EK_Inline jump table entry");
@@ -1701,6 +1705,7 @@ void AsmPrinter::EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
   assert(Value && "Unknown entry kind!");
 
   unsigned EntrySize = MJTI->getEntrySize(getDataLayout());
+  //printf("The entry size is %d\n",EntrySize);
   OutStreamer->EmitValue(Value, EntrySize);
 }
 

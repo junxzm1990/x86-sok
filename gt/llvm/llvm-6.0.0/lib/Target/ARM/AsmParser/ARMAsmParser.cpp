@@ -9013,6 +9013,10 @@ bool ARMAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                            MCStreamer &Out, uint64_t &ErrorInfo,
                                            bool MatchingInlineAsm) {
   MCInst Inst;
+
+  //ztt add refer to X86AsmParser.cpp L2809
+  Inst.setParent(getSTI().getParentID());
+
   unsigned MatchResult;
   bool PendConditionalInstruction = false;
 

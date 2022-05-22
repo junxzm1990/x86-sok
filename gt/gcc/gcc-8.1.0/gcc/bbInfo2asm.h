@@ -10,7 +10,7 @@
 #define GCC_BBINFO2ASM_H 1
 
 // output the basic block begin label
-extern void bbinfo2_asm_block_begin();
+extern void bbinfo2_asm_block_begin(uint32_t);
 
 // output the basic block end label
 extern void bbinfo2_asm_block_end(uint32_t);

@@ -1528,7 +1528,7 @@ void X86AsmPrinter::EmitInstruction(const MachineInstr *MI) {
     const X86FrameLowering* FrameLowering =
         MF->getSubtarget<X86Subtarget>().getFrameLowering();
     bool hasFP = FrameLowering->hasFP(*MF);
-    
+
     // TODO: This is needed only if we require precise CFA.
     bool HasActiveDwarfFrame = OutStreamer->getNumFrameInfos() &&
                                !OutStreamer->getDwarfFrameInfos().back().End;
@@ -2014,7 +2014,7 @@ void X86AsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
-  
+
   // Koo [Note] While converting MachineInstr into MCInst, it is essential to maintain
   //            its parent MF and MBB because MCStreamer and MCAssembler do not care 
   //            them any more semantically. After this phase, fragment and section govern.
@@ -2023,13 +2023,13 @@ void X86AsmPrinter::EmitInstruction(const MachineInstr *MI) {
   unsigned MFID = MBB->getParent()->getFunctionNumber();
   std::string ID = std::to_string(MFID) + "_" + std::to_string(MBBID);
   TmpInst.setParent(ID);
-    
+
   // Koo [Note] Simple hack: both MF and MAI can be accessible, thus update fallThrough here.
   const MCAsmInfo *MAI = getMCAsmInfo();
   if (MAI->canMBBFallThrough.count(ID) == 0)
      MAI->canMBBFallThrough[ID] = MF->canMBBFallThrough[ID];
   MAI->latestParentID = ID;
-  
+
   if (MI->getAsmPrinterFlag(MachineInstr::NoSchedComment))
     TmpInst.setFlags(TmpInst.getFlags() | X86::NO_SCHED_INFO);
 

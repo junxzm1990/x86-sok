@@ -126,6 +126,9 @@ public:
   /// Get the expression this modifier applies to.
   const MCExpr *getSubExpr() const { return Expr; }
 
+
+  const MCExpr *getSubExprDebug() const {return Expr;}
+
   /// @}
   /// @name VariantKind information extractors.
   /// @{
@@ -146,7 +149,7 @@ public:
   /// (e.g. ":got:", ":lo12:").
   StringRef getVariantKindName() const;
 
-  void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
+  const MCExpr *printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
 
   void visitUsedExpr(MCStreamer &Streamer) const override;
 

@@ -1199,12 +1199,12 @@ LLT MachineInstr::getTypeToPrint(unsigned OpIdx, SmallBitVector &PrintedTypes,
   return MRI.getType(Op.getReg());
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+//#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MachineInstr::dump() const {
   dbgs() << "  ";
   print(dbgs());
 }
-#endif
+//#endif
 
 void MachineInstr::print(raw_ostream &OS, bool SkipOpers, bool SkipDebugLoc,
                          const TargetInstrInfo *TII) const {

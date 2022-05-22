@@ -1,0 +1,14 @@
+SRC_FILE=${BASH_SOURCE[0]}
+
+GT_PATH=`dirname $SRC_FILE`
+GT_PATH=`realpath $GT_PATH`
+
+GCC_PATH=${GT_PATH}/build_mips/executable_gcc
+BINUTILS_PATH=${GT_PATH}/build_mips/executable_binutils/bin
+LIBC_PATH=${GT_PATH}/build_mips/glibc_build_32
+
+export CC="${GCC_PATH}/bin/gcc-8.1 -mabi=32 -B${BINUTILS_PATH} -B${GCC_PATH}/lib -B/usr/libo32 -B${GCC_PATH}/lib/gcc/mips64el-linux-gnuabi64/8/32"
+export CXX="${GCC_PATH}/bin/g++-8.1 -mabi=32 -B${BINUTILS_PATH} -B${GCC_PATH}/lib -B/usr/libo32 -B${GCC_PATH}/lib/gcc/mips64el-linux-gnuabi64/8/32"
+export CFLAGS="-B${LIBC_PATH}/lib -g -fuse-ld=gold -Wl,-z,relro,-q -L/usr/lib/gcc/mips64el-linux-gnuabi64/8/32"
+export CXXFLAGS="-B${LIBC_PATH}/lib -g -fuse-ld=gold -Wl,-z,relro,-q -L/usr/lib/gcc/mips64el-linux-gnuabi64/8/32"
+export LDFLAGS="-L${LIBC_PATH}/lib -Wl,-q -L/usr/lib/gcc/mips64el-linux-gnuabi64/8/32"

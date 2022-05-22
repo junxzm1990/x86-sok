@@ -34,6 +34,7 @@ VERSION = '0.83'
 METADATA_PATH = '/tmp/metadata.tmp.gz'
 NEWBIN_POSTFIX = '_shuffled'
 METADATA_POSTFIX = '.shuffle.bin'
+DUP_CHECK = '.dup_check.txt'
 METADESC_POSTFIX = '.meta.txt'
 LOG_POSTFIX = '.log'
 RAND_SECTION = '.rand'
@@ -59,7 +60,7 @@ SEC_SYMTAB    = '.symtab'
 SEC_DEBUG_INFO= '.debug_info'
 
 # Type definitions
-BBL_TYPE   = {0: "BBL", 1: "FUN", 2: "OBJ", 3: "FUN&&OBJ"}
+BBL_TYPE   = {0: "BBL", 1: "FUN", 2: "OBJ", 3: "FUN&&OBJ" , 64: "TBBL" , 65: "TFUN",66: "TOBJ" ,67: "TFUN&&OBJ"}
 FIXUP_TYPE = {0: "C2C", 1: "C2D", 2: "D2C", 3: "D2D", 4: "NewSectionStart", 5: 'Special'}
 SRC_TYPE   = {0: "C/C++", 1: "Inline Assembly", 2:"Standalone Assembly"}
 

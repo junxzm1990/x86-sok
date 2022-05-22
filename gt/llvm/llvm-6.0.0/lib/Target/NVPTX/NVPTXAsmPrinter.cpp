@@ -2244,19 +2244,19 @@ NVPTXAsmPrinter::lowerConstantForGV(const Constant *CV, bool ProcessingGeneric) 
 }
 
 // Copy of MCExpr::print customized for NVPTX
-void NVPTXAsmPrinter::printMCExpr(const MCExpr &Expr, raw_ostream &OS) {
+const MCExpr *NVPTXAsmPrinter::printMCExpr(const MCExpr &Expr, raw_ostream &OS) {
   switch (Expr.getKind()) {
   case MCExpr::Target:
     return cast<MCTargetExpr>(&Expr)->printImpl(OS, MAI);
   case MCExpr::Constant:
     OS << cast<MCConstantExpr>(Expr).getValue();
-    return;
+    return NULL;
 
   case MCExpr::SymbolRef: {
     const MCSymbolRefExpr &SRE = cast<MCSymbolRefExpr>(Expr);
     const MCSymbol &Sym = SRE.getSymbol();
     Sym.print(OS, MAI);
-    return;
+    return NULL;
   }
 
   case MCExpr::Unary: {
@@ -2268,7 +2268,7 @@ void NVPTXAsmPrinter::printMCExpr(const MCExpr &Expr, raw_ostream &OS) {
     case MCUnaryExpr::Plus:  OS << '+'; break;
     }
     printMCExpr(*UE.getSubExpr(), OS);
-    return;
+    return NULL;
   }
 
   case MCExpr::Binary: {
@@ -2290,7 +2290,7 @@ void NVPTXAsmPrinter::printMCExpr(const MCExpr &Expr, raw_ostream &OS) {
       if (const MCConstantExpr *RHSC = dyn_cast<MCConstantExpr>(BE.getRHS())) {
         if (RHSC->getValue() < 0) {
           OS << RHSC->getValue();
-          return;
+          return NULL;
         }
       }
 
@@ -2307,7 +2307,7 @@ void NVPTXAsmPrinter::printMCExpr(const MCExpr &Expr, raw_ostream &OS) {
       printMCExpr(*BE.getRHS(), OS);
       OS << ')';
     }
-    return;
+    return NULL;
   }
   }
 

@@ -7,7 +7,7 @@
 #define BBINFOHANDLE_H
 
 // debug macro
-//#define BBINFO_DEBUG_MSG
+#define BBINFO_DEBUG_MSG
 
 #include "as.h"
 #include "shuffleInfo.pb-c.h"
@@ -21,6 +21,7 @@ extern char bbinfo_is_collect_sec(asection*);
 extern char bbinfo_is_new_sec_frag(asection*);
 extern void handwritten_funcb_bbinfo_handler();
 extern void handwritten_funce_bbinfo_handler();
+extern char bbinfo_in_text;
 
 #ifdef BBINFO_DEBUG_MSG
 extern char *bbinfo_file_name;
@@ -33,11 +34,26 @@ typedef struct sec_last_bb{
   struct sec_last_bb *next;
 } bbinfo_sec_last_bb;
 
+
+//ztt add to save the symbol list
+
+struct symbol_list{
+  char *symbol_name;
+  struct symbol_list *next;
+};
+
+typedef struct symbol_list bbinfo_symbol_list;
+
 // basic block related information
 struct basic_block{
   uint32_t ID; // basic block id, every basic block has unique id in an object
   uint8_t type; // basic block type: basic block or function boundary.
- 		// 0 represents basic block. 1 represents function start. 2 represents object end
+    // 0 represent basic block with normal mode ie. arm
+    // 1 represents function start with normal mode ie. arm
+    // 2 represents object end with normal mode ie. arm
+    // 4 represent basic block with special mode ie. thumb
+    // 5 represents function start with special mode ie. thumb
+    // 6 represents object end with special mode ie. thumb
   uint32_t offset; // offset from the section
   int size; // basic block size, include alignment size
   uint32_t alignment; // basic block alignment size
@@ -54,6 +70,15 @@ struct basic_block{
 
 typedef struct basic_block bbinfo_mbb;
 
+// ztt add last instruction changing PC
+
+typedef struct last_pc{
+  fragS* frag;
+  int offset;
+  struct last_pc *next;
+  int size;
+  symbolS *symbol;
+}bbinfo_last_pc;
 
 // fixup information
 typedef struct fixup{
@@ -72,6 +97,12 @@ extern bbinfo_fixup* fixups_list_head; // fixup list
 extern bbinfo_fixup* fixups_list_tail; // last element of fixups list
 extern bbinfo_mbb* mbbs_list_head; // basic blocks list
 extern bbinfo_mbb* mbbs_list_tail; // the last element of basic blocks list
+extern char new_bb_flag; // ztt add the flag of a new bb wait to build
+extern bbinfo_last_pc* last_pc; //ztt add last instructino changing PC
+extern bbinfo_symbol_list*  symbol_list_head; // ztt add head symbol in inst
+extern bbinfo_symbol_list*  symbol_list_tail;  // ztt add tail symbol in inst
+extern bbinfo_last_pc* added_fixups_list_head; //ztt add first element of added fixup list
+extern bbinfo_last_pc* added_fixups_list_tail; //ztt add last element of added fixup list
 extern uint32_t cur_function_id; // current function id
 extern uint32_t prev_function_id; // prev function id
 extern uint32_t cur_function_end_id; // current function end id
@@ -106,6 +137,9 @@ extern int bbinfo_app;
 // so we create `fake` basic block that contains continuous instructions
 extern int bbinfo_handwritten_file;
 extern void bbinfo_initbb_handwritten(void);
+extern bbinfo_last_pc* bbinfo_init_last_pc(fragS*,int); // ztt add
+extern bbinfo_symbol_list* bbinfo_init_symbol_list(void); // ztt add
+extern bbinfo_last_pc* bbinfo_init_added_fixup(void); // ztt add
 
 // it is used to begin a new `fake` basic block
 extern int bbinfo_last_inst_offset;

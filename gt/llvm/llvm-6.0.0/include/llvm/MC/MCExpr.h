@@ -77,7 +77,7 @@ public:
   /// \name Utility Methods
   /// @{
 
-  void print(raw_ostream &OS, const MCAsmInfo *MAI,
+  const MCExpr *print(raw_ostream &OS, const MCAsmInfo *MAI,
              bool InParens = false) const;
   void dump() const;
 
@@ -573,10 +573,9 @@ class MCTargetExpr : public MCExpr {
 
 protected:
   MCTargetExpr() : MCExpr(Target, SMLoc()) {}
-  virtual ~MCTargetExpr() = default;
 
 public:
-  virtual void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const = 0;
+  virtual const MCExpr *printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const = 0;
   virtual bool evaluateAsRelocatableImpl(MCValue &Res,
                                          const MCAsmLayout *Layout,
                                          const MCFixup *Fixup) const = 0;

@@ -1688,6 +1688,9 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
                   SmallVectorImpl<MCFixup> &Fixups,
                   const MCSubtargetInfo &STI) const {
   // Pseudo instructions don't get encoded.
+  // printf("---------------------------------------------\n");
+  // MI.dump();
+  // printf("---------------------------------------------\n");
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
   if ((TSFlags & ARMII::FormMask) == ARMII::Pseudo)
@@ -1702,11 +1705,20 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
   uint32_t Binary = getBinaryCodeForInstr(MI, Fixups, STI);
   // Thumb 32-bit wide instructions need to emit the high order halfword
   // first.
+  //ztt
+  STI.setByteCtr(Size);
+  //printf("Size is %d\n",Size);
+
+
+  if(isThumb(STI))
+    STI.setSpecialMode(true);
+
   if (isThumb(STI) && Size == 4) {
     EmitConstant(Binary >> 16, 2, OS);
     EmitConstant(Binary & 0xffff, 2, OS);
   } else
     EmitConstant(Binary, Size, OS);
+
   ++MCNumEmitted;  // Keep track of the # of mi's emitted.
 }
 

@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 def dumpInsts(binary, output):
     try:
         output_tmp = randomString()
-        execute_str = "objdump --wide -d %s | egrep '^[[:space:]]*[0-9a-f]+:' | cut -d: -f1 | awk '{print \"0x\"$1}' | tee /tmp/%s.log" % (binary, output_tmp)
+        execute_str = "objdump --wide -d %s | grep -v '\.word' | grep -v '\.short' | grep -v '\.byte' | egrep '^[[:space:]]*[0-9a-f]+:' | cut -d: -f1 | awk '{print \"0x\"$1}' | tee /tmp/%s.log" % (binary, output_tmp)
         print(execute_str)
         os.system(execute_str)
         with open("/tmp/%s.log" % (output_tmp)) as objdump_file:

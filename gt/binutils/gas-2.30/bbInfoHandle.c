@@ -3,6 +3,7 @@
  */
 
 #include "bbInfoHandle.h"
+#include "as.h"
 #include "struc-symbol.h"
 #include <time.h>
 #include <stdlib.h>
@@ -18,6 +19,9 @@ static void inlineb_bbInfo_handler (int);
 static void inlinee_bbInfo_handler (int);
 void bbinfo_update_shuffle_info(void);
 bbinfo_mbb* init_basic_block(void);
+bbinfo_last_pc* bbinfo_init_last_pc(fragS*,int);
+bbinfo_symbol_list* bbinfo_init_symbol_list(void);
+bbinfo_last_pc*  bbinfo_init_added_fixup(void);
 bbinfo_fixup* bbinfo_init_fixup();
 bbinfo_fixup* bbinfo_init_insert_fixup(asection*, int);
 char bbinfo_is_collect_sec(asection*);
@@ -51,13 +55,23 @@ bbinfo_sec_last_bb* sec_last_bb_head = NULL;
 bbinfo_fixup* fixups_list_head; // fixup list
 bbinfo_mbb* mbbs_list_head;   // first element of basic blocks list
 bbinfo_mbb* mbbs_list_tail; // last element of basic blocks list
+char new_bb_flag;// add the flag of a new bb wait to build
+bbinfo_last_pc* last_pc; // add last instructino changing PC
+bbinfo_symbol_list*  symbol_list_head; // add head symbol in inst
+bbinfo_symbol_list*  symbol_list_tail;  // add tail symbol in inst
+bbinfo_last_pc* added_fixups_list_head; // add first element of added fixup list
+bbinfo_last_pc* added_fixups_list_tail; // add last element of added fixup list
 uint32_t cur_function_id;  // current functin id
 uint32_t cur_function_end_id; // current function end id
 uint32_t prev_function_id; // prev function id
 symbolS *last_symbol; // last user defined symbol
-uint32_t cur_block_id; // global current basic block id 
+uint32_t cur_block_id; // global current basic block id
 unsigned char function_head; // represent that the current basic block is current function's first entry
 const char* handwritten_bbinfo_func_name = NULL;
+
+// in text section or not
+char bbinfo_in_text = 0;
+char bbinfo_handled_ee = 0;
 
 // to record if fixups is in a new section(such as .text.xxx)
 //unsigned text_sec_cnt;
@@ -95,6 +109,10 @@ void bbinfo_init(){
   fixups_list_head = NULL;
   mbbs_list_head = NULL;
   mbbs_list_tail = NULL;
+  symbol_list_head = NULL; // add head symbol in inst
+  symbol_list_tail = NULL;  // add tail symbol in inst
+  added_fixups_list_head = NULL;
+  added_fixups_list_tail = NULL;
   cur_function_id = 0;
   cur_function_end_id = 0;
   prev_function_id = 0;
@@ -195,16 +213,15 @@ for(bbinfo_mbb* cur_mbb = mbbs_list_head; cur_mbb;
   if (last_mbb && !bbinfo_handwritten_file)
     if (last_mbb->size + last_mbb->offset != cur_mbb->offset && last_mbb->sec == cur_mbb->sec){
 #ifdef BBINFO_DEBUG_MSG
-    as_warn(_("bb#%d, from %x to %x. last_mbb %d, its section is %s, last_mbb from %x to %x, last basic block added size %d"), 
+    as_warn(_("bb#%d, from %x to %x. last_mbb %d, its section is %s, last_mbb from %x to %x, last basic block added size %d"),
 	bb_cnt, cur_mbb->offset, cur_mbb->offset + cur_mbb->size-1, (last_mbb->parent_frag->last_bb == last_mbb), cur_mbb->sec->name, last_mbb->offset, last_mbb->size+last_mbb->offset-1, last_mbb->parent_frag->last_bb_added_size);
-    
+
     if (bbinfo_file_name){
       save_to_tmp_directory (bbinfo_file_name);
       bbinfo_file_name = NULL;
     }
 #endif
     }
-  
   // record the last basic block of every section
   if (!cur_mbb->next || cur_mbb->next->sec != cur_mbb->sec){
     bbinfo_sec_last_bb* current_sec_last_bb = sec_last_bb_head;
@@ -223,13 +240,24 @@ for(bbinfo_mbb* cur_mbb = mbbs_list_head; cur_mbb;
     }else{
       // we find the bbinfo_sec_last_bb
       if (current_sec_last_bb->offset < cur_mbb->offset)
-	current_sec_last_bb->offset = cur_mbb->offset;
+	      current_sec_last_bb->offset = cur_mbb->offset;
     }
   }
 
   bb_cnt++;
   last_mbb = cur_mbb;
 }
+
+// if (!sec_last_bb_head && last_mbb) {
+//   bbinfo_sec_last_bb* tmp_sec_last_bb = malloc(sizeof(bbinfo_sec_last_bb));
+//   memset(tmp_sec_last_bb, 0, sizeof(bbinfo_sec_last_bb));
+//   // add the malloced bbinfo_sec_last_bb into the list
+//   tmp_sec_last_bb->next = sec_last_bb_head;
+//   tmp_sec_last_bb->offset = last_mbb->offset;
+//   tmp_sec_last_bb->sec = last_mbb->sec;
+//   sec_last_bb_head = tmp_sec_last_bb;
+//   sec_last_bb_head->next = NULL;
+// }
 
 
 // count the fixp number
@@ -351,28 +379,38 @@ for(bbinfo_mbb* cur_mbb = mbbs_list_head; cur_mbb;
   layout[index]->offset = cur_mbb->offset;
 
   bbinfo_sec_last_bb* cur_sec_last = sec_last_bb_head;
+  if (!cur_sec_last) {
+  }
   while(cur_sec_last && cur_sec_last->sec != cur_mbb->sec){
+    as_warn("sec last bb head name is %s, cur_bb name is %s", cur_sec_last->sec, cur_mbb->sec);
     cur_sec_last = cur_sec_last->next;
   }
   // the list does not record the basic block's section
   if (!cur_sec_last){
     as_warn("[bbinfo]: the basic block 0x%x section %s does not record",
 		cur_mbb->offset, cur_mbb->sec->name);
-    exit(-1);
+    // exit(-1);
   }
 
   // current basic block is the end of the its section
-  if(cur_sec_last->offset == cur_mbb->offset){
-    if (layout[index]->type == 1)
-      layout[index]->type = 3; // 3 represents that it is both function and object end
+  if(cur_sec_last && cur_sec_last->offset == cur_mbb->offset){
+    if (layout[index]->type & 1) // chage it to keep the mode information
+    {
+      // add to keep the mode information
+      layout[index]->type &= (1 << 6);
+      layout[index]->type |= 3;// 3 represents that it is both function and object end
+    }
     else
-      layout[index]->type = 2;
+    {
+      layout[index]->type &= (1 << 6);
+      layout[index]->type |= 2;
+    }
   }
-  
+
 
 #ifdef BBINFO_DEBUG_MSG
-  printf("[bbinfo]: bb%d - offset 0x%x, size 0x%x, alignment is %d, type %d, last bb added size %d, sec %s\n", 
-		  index, cur_mbb->offset, cur_mbb->size, cur_mbb->alignment, cur_mbb->type, last_mbb->parent_frag->last_bb_added_size, cur_mbb->sec->name);
+  printf("[bbinfo]: bb%d - id %d, offset 0x%x, size 0x%x, alignment is %d, fix is %d,type %d, last bb added size %lld, sec %s\n",
+		  index,cur_mbb->ID, cur_mbb->offset, cur_mbb->size, cur_mbb->alignment, cur_mbb->num_fixs,cur_mbb->type, last_mbb->parent_frag->last_bb_added_size, cur_mbb->sec->name);
 #endif
 
   index++;
@@ -546,7 +584,7 @@ if (data_fixp_cnt)
 if (init_fixp_cnt)
  free (init_fixp);
 if (datarel_fixp_cnt)
- free (datarel_fixp); 
+ free (datarel_fixp);
 }
 #ifdef BBINFO_DEBUG_MSG
 // debug function
@@ -564,13 +602,13 @@ bbinfo_fixup* bbinfo_init_insert_fixup(asection* sec, int offset){
   bbinfo_fixup* result_fixup = malloc(sizeof(bbinfo_fixup));
   // init
   memset (result_fixup, 0, sizeof(bbinfo_fixup));
-  
+
 
   if (fixups_list_head == NULL){
     fixups_list_head = result_fixup;
     return result_fixup;
   }
- 
+
   bbinfo_fixup* prev = NULL;
   bbinfo_fixup* cur = fixups_list_head;
   // find the section that is equal to sec
@@ -760,9 +798,83 @@ bbinfo_mbb* init_basic_block(){
     mbbs_list_head = result_mbb;
   }else{
     mbbs_list_tail->next = result_mbb;
-  } 
+  }
   mbbs_list_tail = result_mbb;
   return result_mbb;
+}
+
+
+// add to record the last pc inst
+bbinfo_last_pc* bbinfo_init_last_pc(fragS* _frag,int _offset){
+  bbinfo_last_pc *res = malloc(sizeof(bbinfo_last_pc));
+  res->frag = _frag;
+  res->offset = _offset;
+  res->next = NULL;
+  res->symbol = NULL;
+  res->size = 0;
+  return res;
+}
+
+// add to create symbol list to record all symbol used by inst
+bbinfo_symbol_list* bbinfo_init_symbol_list(){
+  bbinfo_symbol_list *result_symbol = malloc(sizeof(bbinfo_symbol_list));
+  result_symbol->next = NULL;
+
+  // put it into the global basic blocks list
+  if (symbol_list_head == NULL){
+    symbol_list_head = result_symbol;
+  }else{
+    symbol_list_tail->next = result_symbol;
+  }
+  symbol_list_tail = result_symbol;
+  return result_symbol;
+}
+
+// create list to save the added fixup
+
+bbinfo_last_pc* bbinfo_init_added_fixup(){
+  bbinfo_last_pc *added_fixup = malloc(sizeof(bbinfo_last_pc));
+  added_fixup->next = NULL;
+
+  // put it into the global basic blocks list
+  if (added_fixups_list_head == NULL){
+    added_fixups_list_head = added_fixup;
+  }else{
+    added_fixups_list_tail->next = added_fixup;
+  }
+  added_fixups_list_tail = added_fixup;
+  return added_fixup;
+}
+
+//add to check the symbol whether used by inst
+char bbinfo_check_symbol_use()
+{
+  const char* symbol_now = S_GET_NAME(last_symbol);
+  bbinfo_symbol_list* i;
+  char res = 0;
+  for(i = symbol_list_head;i;i = i->next)
+  {
+    //printf("T:%s %s\n",i->symbol_name,symbol_now);
+    int len1 = strlen(i->symbol_name);
+    int len2 = strlen(symbol_now);
+    if(len1 == len2 && strncmp(i->symbol_name,symbol_now,len1) == 0)
+    {
+      res = 1;
+      #ifdef BBINFO_DEBUG_MSG
+        printf("T:Find Used Symbol is %s\n",symbol_now);
+      #endif
+      break;
+    }
+  }
+  return res;
+}
+
+char is_arm32() {
+  return !strcmp(stdoutput->arch_info->arch_name, "arm");
+}
+
+char bbinfo_is_mips() {
+  return !strcmp(stdoutput->arch_info->arch_name, "mips");
 }
 
 // handle bbinfo_jmptbl directive
@@ -770,14 +882,32 @@ void jmptable_bbInfo_handler(int ignored ATTRIBUTE_UNUSED){
     offsetT table_size, entry_size;
     table_size = get_absolute_expression();
     SKIP_WHITESPACE();
+
     entry_size = get_absolute_expression();
     if (last_symbol == NULL){
-	printf("Sorry, the last symbol is null\n");
-	return;
+	    //printf("Sorry, the last symbol is null\n");
+	    return;
     }
+
+    //add fixup
+
+    if(is_arm32() && bbinfo_check_symbol_use() == 0)
+    {
+      //printf("Now added %x symbol is %s\n",last_pc->offset,S_GET_NAME(last_symbol));
+      bbinfo_last_pc* added_fixup = bbinfo_init_added_fixup();
+      added_fixup->frag = last_pc->frag;
+      added_fixup->offset = last_pc -> offset;
+      added_fixup->size = last_pc -> size;
+      added_fixup->symbol = last_symbol;
+    }
+
     // update the jump table related information of the symbol
     S_SET_JMPTBL_SIZE(last_symbol, table_size);
+    //as_warn("JMPTBL table size is %d\n", table_size);
     S_SET_JMPTBL_ENTRY_SZ(last_symbol, entry_size);
+    //as_warn("T JMPTBL entrysize is %d\n", entry_size);
+    // const char* symbol_name = S_GET_NAME(last_symbol);
+    // as_warn("last symbol is %s", symbol_name);
     // debug
     //printf("last_symbol is %s\n", S_GET_NAME(last_symbol));
 }
@@ -792,8 +922,10 @@ void handwritten_funcb_bbinfo_handler(){
  
   // we type the last basic block type as the end of the function
   if (mbbs_list_tail)
-    mbbs_list_tail->type = 1;
-  
+  {
+    mbbs_list_tail->type &= (1 << 6);
+    mbbs_list_tail->type |= 1;
+  }
   
     bbinfo_mbb *cur_mbb = init_basic_block();
     cur_mbb->ID = cur_block_id++;
@@ -813,7 +945,8 @@ void handwritten_funce_bbinfo_handler(){
     return;
   if (!mbbs_list_tail)
      as_fatal("[bbinfo]: funce_bbinfo_handler. the mbbs_list_tail is null");
-  mbbs_list_tail->type = 1;
+  mbbs_list_tail->type &= (1 << 6);
+  mbbs_list_tail->type |= 1;
 }
 
 // handle bbinfo_funcb directive, it represents function begin
@@ -853,7 +986,8 @@ void funce_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
      as_fatal("[bbinfo]: funce_bbinfo_handler. the mbbs_list_tail is null");
      exit(-1);
    }
-   mbbs_list_tail->type = 1;
+   mbbs_list_tail->type &= (1 << 6);
+   mbbs_list_tail->type |= 1;
    if (cur_function_end_id != cur_function_id)
      as_warn(_("[bbInfo]: current function end id don not match current function id")); 
 }
@@ -877,12 +1011,46 @@ void bbinfo_initbb_handwritten(void){
 
 }
 
-// handle bbinfo_bb directive, it represents basic block begin
-void bb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    // The lastest basic block doesn't contain any instruction
+void bbinfo_init_bb() {
+   // The lastest basic block doesn't contain any instruction
     // just return;
     if (mbbs_list_tail && mbbs_list_tail->is_begin == 1)
       return;
+    bbinfo_mbb *cur_mbb = init_basic_block();
+
+    // current file is c/c++ file
+    if (bbinfo_handwritten_file){
+      bbinfo_handwritten_file = 0;
+    }
+    // init the basic_block element
+    cur_mbb->ID = cur_block_id++;
+    cur_mbb->type = 0;
+    cur_mbb->offset = -1;
+    cur_mbb->size = 0;
+    cur_mbb->alignment = 0;
+    cur_mbb->num_fixs = 0;
+    cur_mbb->fall_through = 0;
+    cur_mbb->sec = NULL;
+    cur_mbb->parent_id = cur_function_id;
+    cur_mbb->is_begin = 1;
+}
+
+// handle bbinfo_bb directive, it represents basic block begin
+void bb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
+
+    // The lastest basic block doesn't contain any instruction
+    // just return;
+    offsetT fall_through;
+    fall_through = get_absolute_expression();
+
+    if (mbbs_list_tail && mbbs_list_tail->is_begin == 1) {
+      if (fall_through == 1) {
+        mbbs_list_tail->fall_through = 1;
+      } else {
+        mbbs_list_tail->fall_through = 0;
+      }
+      return;
+    }
     bbinfo_mbb *cur_mbb = init_basic_block();
 
     // current file is c/c++ file
@@ -897,7 +1065,10 @@ void bb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
     cur_mbb->size = 0;
     cur_mbb->alignment = 0;
     cur_mbb->num_fixs = 0;
-    cur_mbb->fall_through = 0;
+    if (fall_through == 1)
+      cur_mbb->fall_through = 1;
+    else
+      cur_mbb->fall_through = 0;
     cur_mbb->sec = NULL;
     cur_mbb->parent_id = cur_function_id;
     cur_mbb->is_begin = 1;
@@ -915,6 +1086,7 @@ void be_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
     fall_through = get_absolute_expression();
     if (fall_through == 1)
       mbbs_list_tail->fall_through = 1;
+    bbinfo_handled_ee = 1;
 }
 
 void inlineb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){

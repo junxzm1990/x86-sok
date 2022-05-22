@@ -1993,22 +1993,26 @@ dump_basic_block_mark (FILE *file, rtx_insn *insn, basic_block *start_to_bb,
 		basic_block *end_to_bb, int bb_map_size)
 {
     basic_block bb;
+	uint32_t fall_through = 0;
+	edge e;
+	edge_iterator ei;
 
     if (INSN_UID(insn) < bb_map_size
 	    && (bb = start_to_bb[INSN_UID(insn)]) != NULL)
     {
 	// BUG. only -dA can output the directive, fix later.
-	bbinfo2_asm_block_begin();
+	FOR_EACH_EDGE (e, ei, bb->succs){
+	  if(edge_fall_through(e))
+	   fall_through = 1;
+	}
+	bbinfo2_asm_block_begin(fall_through);
     }
     if (INSN_UID(insn) < bb_map_size
 	    && (bb = end_to_bb[INSN_UID(insn)]) != NULL)
     {
-	edge e;
-	edge_iterator ei;
-	uint32_t fall_through = 0;
 	FOR_EACH_EDGE (e, ei, bb->succs){
 	  if(edge_fall_through(e))
-	   fall_through = 1;   
+	   fall_through = 1;
 	}
 	bbinfo2_asm_block_end(fall_through);
     }
@@ -2720,8 +2724,8 @@ final_scan_insn_1 (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    //binpang, debug, print jump table information
 	    rtx_jump_table_data *table_tmp = dyn_cast<rtx_jump_table_data*>(insn);
 	    if(table_tmp){
-		uint32_t entry_size = GET_MODE_SIZE(table_tmp->get_data_mode());
-		bbinfo2_asm_jumptable(vlen, entry_size);
+			uint32_t entry_size = GET_MODE_SIZE(table_tmp->get_data_mode());
+			bbinfo2_asm_jumptable(vlen, entry_size);
 	    }
 	    //binpang, finish
 	    for (idx = 0; idx < vlen; idx++)

@@ -2248,9 +2248,11 @@ Output_section::Input_section::set_address_and_file_offset(
     off_t file_offset,
     off_t section_file_offset)
 {
-  if (this->is_input_section())
-    this->u2_.object->set_section_offset(this->shndx_,
-					 file_offset - section_file_offset);
+  if (this->is_input_section()){
+    // gold_info(_("[set address and file offset]: obj is %s, shndx is %d, offset is %llx"),
+              // this->u2_.object->name().c_str(), this->shndx_, file_offset - section_file_offset);
+    this->u2_.object->set_section_offset(this->shndx_, file_offset - section_file_offset);
+  }
   else
     this->u2_.posd->set_address_and_file_offset(address, file_offset);
 }
@@ -4186,8 +4188,9 @@ Output_section::adjust_section_offsets()
        ++p)
     {
       off = align_address(off, p->addralign());
-      if (p->is_input_section())
+      if (p->is_input_section()){
 	p->relobj()->set_section_offset(p->shndx(), off);
+      }
       off += p->data_size();
     }
 

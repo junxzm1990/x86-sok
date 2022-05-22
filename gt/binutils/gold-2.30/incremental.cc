@@ -2037,6 +2037,7 @@ Sized_relobj_incr<size, big_endian>::do_layout(
   Output_sections& out_sections(this->output_sections());
   out_sections.resize(shnum);
   this->section_offsets().resize(shnum);
+  this->section_offsets_saved().resize(shnum);
 
   // Keep track of .debug_info and .debug_types sections.
   std::vector<unsigned int> debug_info_sections;
@@ -2055,6 +2056,7 @@ Sized_relobj_incr<size, big_endian>::do_layout(
       gold_assert(os != NULL);
       out_sections[i] = os;
       this->section_offsets()[i] = static_cast<Address>(sect.sh_offset);
+      this->section_offsets_saved()[i] = static_cast<Address>(sect.sh_offset);
 
       // When generating a .gdb_index section, we do additional
       // processing of .debug_info and .debug_types sections after all

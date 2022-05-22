@@ -19,10 +19,6 @@ message Function{
 					 // So we create a dummy function for every handwritten assemble object
 }
 
-message CalledFunction{
-  required uint64 va = 1;
-}
-
 message Child{
   required uint64 va = 1;
 }
@@ -31,6 +27,12 @@ message Instruction{
   required uint64 va = 1;
   optional uint32 size = 2 [default = 0];
   optional uint32 call_type = 3 [default = 0]; // 1 is direct call or indirect call, 2 is indirect call, 3 is direct call.
+  optional uint64 callee = 4 [default = 0];
+  optional string callee_name = 5 [default = ""];
+}
+
+message CalledFunction{
+  required uint64 va = 1;
 }
 
 message BasicBlock{

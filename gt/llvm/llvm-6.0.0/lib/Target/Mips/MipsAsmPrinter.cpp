@@ -57,6 +57,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include <cassert>
 #include <cstdint>
 #include <map>
@@ -99,6 +100,15 @@ bool MipsAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
 
   return true;
 }
+
+inline std::string getMBBID(const MachineInstr &MI) {
+  const MachineBasicBlock &MBB = *MI.getParent();
+
+  unsigned MBBID = MBB.getNumber();
+  unsigned MFID = MBB.getParent()->getFunctionNumber();
+  return std::to_string(MFID) + "_" + std::to_string(MBBID);
+}
+
 
 bool MipsAsmPrinter::lowerOperand(const MachineOperand &MO, MCOperand &MCOp) {
   MCOp = MCInstLowering.LowerOperand(MO);
@@ -145,6 +155,8 @@ void MipsAsmPrinter::emitPseudoIndirectBranch(MCStreamer &OutStreamer,
   lowerOperand(MI->getOperand(0), MCOp);
   TmpInst0.addOperand(MCOp);
 
+  TmpInst0.setParent(getMBBID(*MI));
+
   EmitToStreamer(OutStreamer, TmpInst0);
 }
 
@@ -160,6 +172,12 @@ void MipsAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     PrintDebugValueComment(MI, OS);
     return;
   }
+
+  const MCAsmInfo *MAI = getMCAsmInfo();
+  std::string ID_tmp = getMBBID(*MI);
+  if (MAI->canMBBFallThrough.count(ID_tmp) == 0)
+    MAI->canMBBFallThrough[ID_tmp] = MF->canMBBFallThrough[ID_tmp];
+  MAI->latestParentID = ID_tmp;
 
   // If we just ended a constant pool, mark it as such.
   if (InConstantPool && Opc != Mips::CONSTPOOL_ENTRY) {
@@ -236,6 +254,7 @@ void MipsAsmPrinter::EmitInstruction(const MachineInstr *MI) {
 
     MCInst TmpInst0;
     MCInstLowering.Lower(&*I, TmpInst0);
+    TmpInst0.setParent(getMBBID(*I));
     EmitToStreamer(*OutStreamer, TmpInst0);
   } while ((++I != E) && I->isInsideBundle()); // Delay slot check
 }
@@ -1137,6 +1156,8 @@ void MipsAsmPrinter::EmitSled(const MachineInstr &MI, SledKind Kind) {
   OutStreamer->EmitLabel(CurSled);
   auto Target = OutContext.createTempSymbol();
 
+  auto MBBID = getMBBID(MI);
+
   // Emit "B .tmpN" instruction, which jumps over the nop sled to the actual
   // start of function
   const MCExpr *TargetExpr = MCSymbolRefExpr::create(
@@ -1144,13 +1165,13 @@ void MipsAsmPrinter::EmitSled(const MachineInstr &MI, SledKind Kind) {
   EmitToStreamer(*OutStreamer, MCInstBuilder(Mips::BEQ)
                                    .addReg(Mips::ZERO)
                                    .addReg(Mips::ZERO)
-                                   .addExpr(TargetExpr));
+                                   .addExpr(TargetExpr).setParent(MBBID));
 
   for (int8_t I = 0; I < NoopsInSledCount; I++)
     EmitToStreamer(*OutStreamer, MCInstBuilder(Mips::SLL)
                                      .addReg(Mips::ZERO)
                                      .addReg(Mips::ZERO)
-                                     .addImm(0));
+                                     .addImm(0).setParent(MBBID));
 
   OutStreamer->EmitLabel(Target);
 
@@ -1159,7 +1180,7 @@ void MipsAsmPrinter::EmitSled(const MachineInstr &MI, SledKind Kind) {
                    MCInstBuilder(Mips::ADDiu)
                        .addReg(Mips::T9)
                        .addReg(Mips::T9)
-                       .addImm(0x34));
+                       .addImm(0x34).setParent(MBBID));
   }
 
   recordSled(CurSled, MI, Kind);

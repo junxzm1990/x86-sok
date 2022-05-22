@@ -1264,8 +1264,10 @@ Sized_relobj_file<size, big_endian>::layout_section(
   this->output_sections()[shndx] = os;
   if (offset == -1)
     this->section_offsets()[shndx] = invalid_address;
-  else
+  else {
     this->section_offsets()[shndx] = convert_types<Address, off_t>(offset);
+    this->section_offsets_saved()[shndx] = convert_types<Address, off_t>(offset);
+  }
 
   // If this section requires special handling, and if there are
   // relocs that apply to it, then we must do the special handling
@@ -1305,8 +1307,10 @@ Sized_relobj_file<size, big_endian>::layout_eh_frame_section(
   this->output_sections()[shndx] = os;
   if (os == NULL || offset == -1)
     this->section_offsets()[shndx] = invalid_address;
-  else
+  else {
     this->section_offsets()[shndx] = convert_types<Address, off_t>(offset);
+    this->section_offsets_saved()[shndx] = convert_types<Address, off_t>(offset);
+  }
 
   // If this section requires special handling, and if there are
   // relocs that aply to it, then we must do the special handling
@@ -1475,6 +1479,7 @@ Sized_relobj_file<size, big_endian>::do_layout(Symbol_table* symtab,
     {
       out_sections.resize(shnum);
       out_section_offsets.resize(shnum);
+      this->section_offsets_saved().resize(shnum);
     }
 
   // If we are only linking for symbols, then there is nothing else to

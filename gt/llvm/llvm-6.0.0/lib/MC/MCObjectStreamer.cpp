@@ -290,6 +290,7 @@ void MCObjectStreamer::EmitInstructionImpl(const MCInst &Inst,
   // If this instruction doesn't need relaxation, just emit it as data.
   MCAssembler &Assembler = getAssembler();
   if (!Assembler.getBackend().mayNeedRelaxation(Inst)) {
+    //ztt:Emit from here
     EmitInstToData(Inst, STI);
     return;
   }
@@ -305,6 +306,7 @@ void MCObjectStreamer::EmitInstructionImpl(const MCInst &Inst,
     getAssembler().getBackend().relaxInstruction(Inst, STI, Relaxed);
     while (getAssembler().getBackend().mayNeedRelaxation(Relaxed))
       getAssembler().getBackend().relaxInstruction(Relaxed, STI, Relaxed);
+    // ztt_set_parent
     Relaxed.setParent(Inst.getParent()); // Koo
     EmitInstToData(Relaxed, STI);
     return;
@@ -347,6 +349,9 @@ void MCObjectStreamer::EmitInstToFragment(const MCInst &Inst,
   // errs() << "MCObjectStreamer::EmitInstToData " << Code.size() << "B, STI: " << STI.getByteCtr() << "B\n";
   IF->getInst().setByteCtr(Code.size());
   IF->getInst().setFixupCtr(1);
+
+  //ztt add to fix the thumb mode
+  IF->getInst().setSpecialMode(STI.getSpecialMode());
 }
 
 #ifndef NDEBUG

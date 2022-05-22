@@ -55,7 +55,7 @@ public:
 
 /// computes the log2 of the size of the relocation,
 /// used for relocation_info::r_length.
-static unsigned getFixupKindLog2Size(unsigned Kind) {
+static unsigned getFixupKindSize(unsigned Kind) {
   switch (Kind) {
   default:
     report_fatal_error("log2size(FixupKind): Unhandled fixup kind!");
@@ -303,7 +303,7 @@ void PPCMachObjectWriter::RecordPPCRelocation(
     const MCFragment *Fragment, const MCFixup &Fixup, MCValue Target,
     uint64_t &FixedValue) {
   const MCFixupKind FK = Fixup.getKind(); // unsigned
-  const unsigned Log2Size = getFixupKindLog2Size(FK);
+  const unsigned Log2Size = getFixupKindSize(FK);
   const bool IsPCRel = Writer->isFixupKindPCRel(Asm, FK);
   const unsigned RelocType = getRelocType(Target, FK, IsPCRel);
 

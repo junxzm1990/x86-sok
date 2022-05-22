@@ -63,8 +63,59 @@ public:
                         MCInst &Res) const override;
 
   bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
-  
-  unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+
+  //ztt add handle FixupSize
+  unsigned getFixupKindSize(unsigned Kind) const override {
+  switch (Kind) {
+  default:
+    llvm_unreachable("Unknown fixup kind!");
+
+  case FK_Data_1:
+  case ARM::fixup_arm_thumb_bcc:
+  case ARM::fixup_arm_thumb_cp:
+  case ARM::fixup_thumb_adr_pcrel_10:
+    return 1;
+
+  case FK_Data_2:
+  case ARM::fixup_arm_thumb_br:
+  case ARM::fixup_arm_thumb_cb:
+  case ARM::fixup_arm_mod_imm:
+    return 2;
+
+  case ARM::fixup_arm_pcrel_10_unscaled:
+  case ARM::fixup_arm_ldst_pcrel_12:
+  case ARM::fixup_arm_pcrel_10:
+  case ARM::fixup_arm_pcrel_9:
+  case ARM::fixup_arm_adr_pcrel_12:
+  case ARM::fixup_arm_uncondbl:
+  case ARM::fixup_arm_condbl:
+  case ARM::fixup_arm_blx:
+  case ARM::fixup_arm_condbranch:
+  case ARM::fixup_arm_uncondbranch:
+    return 3;
+
+  case FK_Data_4:
+  case ARM::fixup_t2_ldst_pcrel_12:
+  case ARM::fixup_t2_condbranch:
+  case ARM::fixup_t2_uncondbranch:
+  case ARM::fixup_t2_pcrel_10:
+  case ARM::fixup_t2_pcrel_9:
+  case ARM::fixup_t2_adr_pcrel_12:
+  case ARM::fixup_arm_thumb_bl:
+  case ARM::fixup_arm_thumb_blx:
+  case ARM::fixup_arm_movt_hi16:
+  case ARM::fixup_arm_movw_lo16:
+  case ARM::fixup_t2_movt_hi16:
+  case ARM::fixup_t2_movw_lo16:
+  case ARM::fixup_t2_so_imm:
+    return 4;
+
+  case FK_SecRel_2:
+    return 2;
+  case FK_SecRel_4:
+    return 4;
+  }
+  }
 
   void handleAssemblerFlag(MCAssemblerFlag Flag) override;
 

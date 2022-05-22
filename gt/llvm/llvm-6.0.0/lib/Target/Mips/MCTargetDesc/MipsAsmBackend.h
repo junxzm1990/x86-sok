@@ -84,8 +84,28 @@ public:
   /// @}
 
   bool writeNopData(uint64_t Count, MCObjectWriter *OW) const override;
-  
-  unsigned getFixupKindLog2Size(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+
+  // unsigned getFixupKindSize(unsigned Kind) const override { return 0; } // Koo [N/A Here]
+  unsigned getFixupKindSize(unsigned Kind) const override {
+  //return (getFixupKindInfo((MCFixupKind)Kind.TargetSize + 7) / 8;
+  unsigned FullSize = 1;
+  switch ((unsigned)Kind) {
+  case FK_Data_2:
+  case Mips::fixup_Mips_16:
+  case Mips::fixup_MICROMIPS_PC10_S1:
+    FullSize = 2;
+    break;
+  case FK_Data_8:
+  case Mips::fixup_Mips_64:
+    FullSize = 8;
+    break;
+  case FK_Data_4:
+  default:
+    FullSize = 4;
+    break;
+  }
+  return FullSize;
+}
 
 }; // class MipsAsmBackend
 

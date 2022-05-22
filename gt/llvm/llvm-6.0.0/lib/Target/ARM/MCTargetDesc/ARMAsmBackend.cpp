@@ -777,6 +777,7 @@ bool ARMAsmBackend::shouldForceRelocation(const MCAssembler &Asm,
   return false;
 }
 
+
 /// getFixupKindNumBytes - The number of bytes the fixup may change.
 static unsigned getFixupKindNumBytes(unsigned Kind) {
   switch (Kind) {

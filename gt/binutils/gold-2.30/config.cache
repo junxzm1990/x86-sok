@@ -1,0 +1,130 @@
+# This file is a shell script that caches the results of configure
+# tests run on this system so they can be shared between configure
+# scripts and configure runs, see configure's option --config-cache.
+# It is not useful on other systems.  If it contains results you don't
+# want to keep, you may remove or edit it.
+#
+# config.status only pays attention to the cache file if you give it
+# the --recheck option to rerun configure.
+#
+# `ac_cv_env_foo' variables (set or unset) will be overridden when
+# loading this file, other *unset* `ac_cv_foo' will be assigned the
+# following values.
+
+ac_cv_build=${ac_cv_build=armv7l-unknown-linux-gnueabihf}
+ac_cv_c_bigendian=${ac_cv_c_bigendian=no}
+ac_cv_c_compiler_gnu=${ac_cv_c_compiler_gnu=yes}
+ac_cv_cxx_compiler_gnu=${ac_cv_cxx_compiler_gnu=yes}
+ac_cv_env_CCC_set=
+ac_cv_env_CCC_value=
+ac_cv_env_CC_set=set
+ac_cv_env_CC_value=gcc
+ac_cv_env_CFLAGS_set=set
+ac_cv_env_CFLAGS_value='-g -O2'
+ac_cv_env_CPPFLAGS_set=
+ac_cv_env_CPPFLAGS_value=
+ac_cv_env_CPP_set=
+ac_cv_env_CPP_value=
+ac_cv_env_CXXCPP_set=
+ac_cv_env_CXXCPP_value=
+ac_cv_env_CXXFLAGS_set=set
+ac_cv_env_CXXFLAGS_value='-g -O2'
+ac_cv_env_CXX_set=set
+ac_cv_env_CXX_value=g++
+ac_cv_env_LDFLAGS_set=set
+ac_cv_env_LDFLAGS_value='-static-libstdc++ -static-libgcc '
+ac_cv_env_LIBS_set=
+ac_cv_env_LIBS_value=
+ac_cv_env_YACC_set=set
+ac_cv_env_YACC_value='bison -y'
+ac_cv_env_YFLAGS_set=
+ac_cv_env_YFLAGS_value=
+ac_cv_env_build_alias_set=set
+ac_cv_env_build_alias_value=armv7l-unknown-linux-gnueabihf
+ac_cv_env_host_alias_set=set
+ac_cv_env_host_alias_value=armv7l-unknown-linux-gnueabihf
+ac_cv_env_target_alias_set=set
+ac_cv_env_target_alias_value=armv7l-unknown-linux-gnueabihf
+ac_cv_func_chsize=${ac_cv_func_chsize=no}
+ac_cv_func_fallocate=${ac_cv_func_fallocate=yes}
+ac_cv_func_ffsll=${ac_cv_func_ffsll=yes}
+ac_cv_func_ftruncate=${ac_cv_func_ftruncate=yes}
+ac_cv_func_mallinfo=${ac_cv_func_mallinfo=yes}
+ac_cv_func_mmap=${ac_cv_func_mmap=yes}
+ac_cv_func_posix_fallocate=${ac_cv_func_posix_fallocate=yes}
+ac_cv_func_pread=${ac_cv_func_pread=yes}
+ac_cv_func_readv=${ac_cv_func_readv=yes}
+ac_cv_func_setlocale=${ac_cv_func_setlocale=yes}
+ac_cv_func_sysconf=${ac_cv_func_sysconf=yes}
+ac_cv_func_times=${ac_cv_func_times=yes}
+ac_cv_have_decl_asprintf=${ac_cv_have_decl_asprintf=yes}
+ac_cv_have_decl_basename=${ac_cv_have_decl_basename=yes}
+ac_cv_have_decl_ffs=${ac_cv_have_decl_ffs=yes}
+ac_cv_have_decl_memmem=${ac_cv_have_decl_memmem=yes}
+ac_cv_have_decl_snprintf=${ac_cv_have_decl_snprintf=yes}
+ac_cv_have_decl_strndup=${ac_cv_have_decl_strndup=yes}
+ac_cv_have_decl_strverscmp=${ac_cv_have_decl_strverscmp=yes}
+ac_cv_have_decl_vasprintf=${ac_cv_have_decl_vasprintf=yes}
+ac_cv_have_decl_vsnprintf=${ac_cv_have_decl_vsnprintf=yes}
+ac_cv_header_byteswap_h=${ac_cv_header_byteswap_h=yes}
+ac_cv_header_dlfcn_h=${ac_cv_header_dlfcn_h=yes}
+ac_cv_header_ext_hash_map=${ac_cv_header_ext_hash_map=yes}
+ac_cv_header_ext_hash_set=${ac_cv_header_ext_hash_set=yes}
+ac_cv_header_inttypes_h=${ac_cv_header_inttypes_h=yes}
+ac_cv_header_locale_h=${ac_cv_header_locale_h=yes}
+ac_cv_header_memory_h=${ac_cv_header_memory_h=yes}
+ac_cv_header_minix_config_h=${ac_cv_header_minix_config_h=no}
+ac_cv_header_stdc=${ac_cv_header_stdc=yes}
+ac_cv_header_stdint_h=${ac_cv_header_stdint_h=yes}
+ac_cv_header_stdlib_h=${ac_cv_header_stdlib_h=yes}
+ac_cv_header_string_h=${ac_cv_header_string_h=yes}
+ac_cv_header_strings_h=${ac_cv_header_strings_h=yes}
+ac_cv_header_sys_mman_h=${ac_cv_header_sys_mman_h=yes}
+ac_cv_header_sys_stat_h=${ac_cv_header_sys_stat_h=yes}
+ac_cv_header_sys_types_h=${ac_cv_header_sys_types_h=yes}
+ac_cv_header_tr1_unordered_map=${ac_cv_header_tr1_unordered_map=yes}
+ac_cv_header_tr1_unordered_set=${ac_cv_header_tr1_unordered_set=yes}
+ac_cv_header_unistd_h=${ac_cv_header_unistd_h=yes}
+ac_cv_header_unordered_map=${ac_cv_header_unordered_map=yes}
+ac_cv_header_unordered_set=${ac_cv_header_unordered_set=yes}
+ac_cv_header_windows_h=${ac_cv_header_windows_h=no}
+ac_cv_host=${ac_cv_host=armv7l-unknown-linux-gnueabihf}
+ac_cv_objext=${ac_cv_objext=o}
+ac_cv_path_EGREP=${ac_cv_path_EGREP='/bin/grep -E'}
+ac_cv_path_GMSGFMT=${ac_cv_path_GMSGFMT=/usr/bin/msgfmt}
+ac_cv_path_GREP=${ac_cv_path_GREP=/bin/grep}
+ac_cv_path_MSGFMT=${ac_cv_path_MSGFMT=/usr/bin/msgfmt}
+ac_cv_path_MSGMERGE=${ac_cv_path_MSGMERGE=/usr/bin/msgmerge}
+ac_cv_path_XGETTEXT=${ac_cv_path_XGETTEXT=/usr/bin/xgettext}
+ac_cv_path_mkdir=${ac_cv_path_mkdir=/bin/mkdir}
+ac_cv_prog_AWK=${ac_cv_prog_AWK=gawk}
+ac_cv_prog_CC=${ac_cv_prog_CC=gcc}
+ac_cv_prog_CPP=${ac_cv_prog_CPP='gcc -E'}
+ac_cv_prog_CXXCPP=${ac_cv_prog_CXXCPP='g++ -E'}
+ac_cv_prog_NM=${ac_cv_prog_NM=nm}
+ac_cv_prog_RANLIB=${ac_cv_prog_RANLIB=ranlib}
+ac_cv_prog_YACC=${ac_cv_prog_YACC='bison -y'}
+ac_cv_prog_cc_c89=${ac_cv_prog_cc_c89=}
+ac_cv_prog_cc_g=${ac_cv_prog_cc_g=yes}
+ac_cv_prog_cxx_g=${ac_cv_prog_cxx_g=yes}
+ac_cv_prog_make__usr_bin_make_set=${ac_cv_prog_make__usr_bin_make_set=yes}
+ac_cv_safe_to_define___extensions__=${ac_cv_safe_to_define___extensions__=yes}
+ac_cv_search_dlopen=${ac_cv_search_dlopen=-ldl}
+ac_cv_target=${ac_cv_target=armv7l-unknown-linux-gnueabihf}
+am_cv_CC_dependencies_compiler_type=${am_cv_CC_dependencies_compiler_type=gcc3}
+am_cv_CXX_dependencies_compiler_type=${am_cv_CXX_dependencies_compiler_type=gcc3}
+am_cv_val_LC_MESSAGES=${am_cv_val_LC_MESSAGES=yes}
+gold_cv_c_random_seed=${gold_cv_c_random_seed=yes}
+gold_cv_c_thread=${gold_cv_c_thread=yes}
+gold_cv_c_threadprivate=${gold_cv_c_threadprivate=yes}
+gold_cv_hash_off_t=${gold_cv_hash_off_t=yes}
+gold_cv_lib_glibc24=${gold_cv_lib_glibc24=yes}
+gold_cv_lib_glibc29=${gold_cv_lib_glibc29=yes}
+gold_cv_lib_glibc_ifunc=${gold_cv_lib_glibc_ifunc=both}
+gold_cv_lib_mremap_maymove=${gold_cv_lib_mremap_maymove=yes}
+gold_cv_lib_static=${gold_cv_lib_static=yes}
+gold_cv_merge_constants=${gold_cv_merge_constants=yes}
+gold_cv_prog_gcc41=${gold_cv_prog_gcc41=yes}
+gold_cv_stat_st_mtim=${gold_cv_stat_st_mtim=yes}
+gold_cv_template_attribute=${gold_cv_template_attribute=yes}
+gold_cv_unordered_map_rehash=${gold_cv_unordered_map_rehash=yes}

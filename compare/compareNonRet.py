@@ -4,10 +4,11 @@ import logging
 import blocks_pb2
 from elftools.elf.elffile import ELFFile
 from BlockUtil import *
+import bbinfoconfig as bbl
 
 from pwnlib.elf import elf
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 # some decompiler decompile padding as instructions
 paddingMap = dict()
@@ -22,22 +23,99 @@ linkerExcludeFunction = dict()
 groundTruthFuncRange = dict()
 
 linker_libc_func = {
-           "__x86.get_pc_thunk.bx", # glibc in i386 function
-           "__libc_csu_init",
-           "__libc_csu_fini",
-           "deregister_tm_clones",
-           "register_tm_clones",
-           "__do_global_dtors_aux",
-           "frame_dummy",
-           "_start",
-           "atexit",
-           "_dl_relocate_static_pie",
-           "__stat",
-           "stat64",
-           "fstat64",
-           "lstat64",
-           "fstatat64",
-           "__fstat"
+            "__x86.get_pc_thunk.bx", # glibc in i386 function
+               "__libc_csu_init",
+               "__libc_csu_fini",
+               "deregister_tm_clones",
+               "register_tm_clones",
+               "__do_global_dtors_aux",
+               "frame_dummy",
+               "_start",
+               "atexit",
+               "_dl_relocate_static_pie",
+               "__stat",
+               "stat64",
+               "fstat64",
+               "lstat64",
+               "fstatat64",
+               "__fstat",
+               "call_weak_fn",
+               "__udivsi3",
+               "__aeabi_uidivmod",
+               "__divsi3",
+               ".divsi3_skip_div0_test",
+               "__aeabi_idivmod",
+               "__aeabi_idiv0",
+               "__aeabi_ldivmod",
+               "__udivmoddi4",
+               "__aeabi_drsub",
+               "__aeabi_dsub",
+               "__adddf3",
+               "__aeabi_ui2d",
+               "__aeabi_i2f",
+               "__aeabi_ul2f",
+               "__aeabi_l2f",
+               "__aeabi_i2d",
+               "__aeabi_f2d",
+               "__arm_set_fast_math",
+               "__divsc3",
+               "__mulsc3",
+               "__aeabi_ul2d",
+               "__aeabi_l2d",
+               "__aeabi_frsub",
+               "__aeabi_fsub",
+               "__addsf3",
+               "__aeabi_ui2f",
+               "__aeabi_uldivmod",
+               "hlt",
+               "__start",
+               "__addtf3",
+               "__divtf3",
+               "__multf3",
+               "__floatunditf",
+               # libc static
+               "ns_name_pton",
+               "__cxa_rethrow",
+               "_Znwm",
+               "__cxa_guard_abort",
+               "__cxa_guard_release",
+               "__cxa_throw_bad_array_new_length",
+               "_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EE",
+               "_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1Ev",
+               "_ZNSt14basic_ifstreamIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode",
+               "_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev",
+               "_Unwind_Resume",
+               "_ZNKSt8__detail20_Prime_rehash_policy11_M_next_bktEm",
+               "_ZSt24__throw_out_of_range_fmtPKcz",
+               "_ZSt20__throw_length_errorPKc",
+               "_ZSt17__throw_bad_allocv",
+               "_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6substrEmm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructIPKcEEvT_S8_St20forward_iterator_tag",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructIPcEEvT_S7_St20forward_iterator_tag",
+               "_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEmmPKc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm",
+               "__subtf3",
+               "__aeabi_d2ulz",
+               "__aeabi_d2lz",
+               "lstat64",
+               "fstat64",
+               "stat64",
+               "__fixtfdi",
+               "__cxx_global_var_init.8",
+               "__mknod",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE12_M_constructEmc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED1Ev",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSERKS4_",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEpLEc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5eraseEmm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4_mm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKcm",
+               "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEpLEPKc"
     }
 
 def readGroundTruthFuncsRange(mModule):
@@ -134,6 +212,7 @@ def parseCallInsts(MD, content, cur_addr, count_ = None):
         disasm_ins = MD.disasm(content, cur_addr)
     else:
         disasm_ins = MD.disasm(content, cur_addr, count = count_)
+
     result = set()
     indirect_result = set()
     last_inst = None
@@ -145,7 +224,8 @@ def parseCallInsts(MD, content, cur_addr, count_ = None):
     last_inst = None
     if cur_inst != None:
         last_inst = cur_inst
-        if x86.X86_GRP_CALL in cur_inst.groups:
+        print(cur_inst.groups)
+        if bbl.BB_CALL_FLAG in cur_inst.groups:
             if isIndirect(cur_inst):
                 logging.debug("indirect call instruction is 0x%x" % cur_inst.address)
                 indirect_result.add(cur_inst.address - disassembler_base_addr)
@@ -173,7 +253,6 @@ def readGroundNonRet(mModule, binary):
 
         all_successors = set()
         no_call = True
-
         for bb in func.bb:
             if isInExcludeRange(bb.va):
                 continue
@@ -412,37 +491,46 @@ def getLinkerFunctionRange(binary):
         elffile = ELFFile(openFile)
         symsec = elffile.get_section_by_name('.symtab')
         funcSet = set()
-        global linkerExcludeFunction 
+        global linkerExcludeFunction
         get_pc_thunk_bx = 0x0
         if symsec == None:
             return
         for sym in symsec.iter_symbols():
             if 'STT_FUNC' != sym.entry['st_info']['type']:
                 continue
-            funcSet.add(sym['st_value'])
-            if sym['st_value'] in notIncludedLinkerFunc:
+            v_addr = sym['st_value']
+            if v_addr % 4 == 1 and arm:
+                v_addr = v_addr - 1
+
+            funcSet.add(v_addr)
+            if v_addr in notIncludedLinkerFunc:
                 size = sym['st_size']
-                linkerExcludeFunction[sym['st_value']] = size
+                linkerExcludeFunction[v_addr] = size
 
-
+        logging.info("linker exclude function is {}".format(linkerExcludeFunction))
         prev_func = None
         for func in sorted(funcSet):
             if prev_func != None and prev_func in linkerExcludeFunction:
                 if not isInTextSection(prev_func):
+                    # logging.info("function 0x%x not in text section!" % prev_func)
+                    prev_func = func
                     continue
                 if linkerExcludeFunction[prev_func] != 0:
                     # update the linker function paddings
                     end_addr = prev_func + linkerExcludeFunction[prev_func]
                     padding_size = func - prev_func - linkerExcludeFunction[prev_func]
-                    assert padding_size >= 0, "[getLinkerFunctionRange]: padding size < 0"
-                    if padding_size < 0x30:
-                        paddingMap[end_addr] = padding_size
+                    # logging.info("padding size of function 0x%x is 0x%x" % (prev_func, padding_size))
+                    # assert padding_size >= 0, "[getLinkerFunctionRange]: padding size < 0"
+                    # if padding_size < 0x30 and padding_size > 0x0:
+                    #     paddingMap[end_addr] = padding_size
+                    if padding_size > 0x0:
+                        linkerExcludeFunction[prev_func] += padding_size
                 else:
                     linker_func_size = func - prev_func
                     # check the function size.
                     # if the size is too large, we need to comfirm it manually!
-                    assert linker_func_size > 0 and linker_func_size < 0x80, '[getLinkerFunctionRange]: linker function size seems unnormal, please check it manually!'
-                    linkerExcludeFunction[prev_func] = func - prev_func
+                    # assert linker_func_size > 0 and linker_func_size < 0x80, '[getLinkerFunctionRange]: linker function at 0x%x size seems unnormal, please check it manually!' % (prev_func)
+                    linkerExcludeFunction[prev_func] = linker_func_size
             prev_func = func
 
         init_fini = ['.init', '.fini']
@@ -560,6 +648,13 @@ if __name__ == '__main__':
 
     # confirm which tool we are handling
     confirmTools(options.comparedfile)
+
+    ELF_CLASS = readElfClass(options.binaryFile)
+    ELF_ARCH = readElfArch(options.binaryFile)
+    ELF_LITTLE_ENDIAN = readElfEndian(options.binaryFile)
+    # print(ELF_LITTLE_ENDIAN)
+
+    bbl.init(ELF_ARCH, ELF_CLASS, ELF_LITTLE_ENDIAN)
 
     if isAngr:
         getAngrBlackAddrs(options.binaryFile)

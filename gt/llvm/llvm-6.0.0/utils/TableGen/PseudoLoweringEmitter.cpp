@@ -259,7 +259,16 @@ void PseudoLoweringEmitter::emitLoweringEmitter(raw_ostream &o) {
           << "        if (lowerOperand(MI->getOperand(i), MCOp))\n"
           << "          TmpInst.addOperand(MCOp);\n";
       }
-      o << "      EmitToStreamer(OutStreamer, TmpInst);\n"
+
+      o << "      //ztt add\n"
+        << "      const MachineBasicBlock *MBB = MI->getParent(); \n"
+        << "      unsigned MBBID = MBB->getNumber(); \n"
+        << "      unsigned MFID = MBB->getParent()->getFunctionNumber(); \n"
+        << "      std::string ID = std::to_string(MFID) + \"_\" + std::to_string(MBBID); \n"
+        << "      TmpInst.setParent(ID);\n"
+        //<<"       MI->dump();\n"
+        << "\n"
+        << "      EmitToStreamer(OutStreamer, TmpInst);\n"
         << "      break;\n"
         << "    }\n";
     }

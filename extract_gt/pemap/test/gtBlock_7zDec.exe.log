@@ -1,0 +1,2 @@
+  File "./pemap/test/7zDec.exe", line 1
+SyntaxError: Non-ASCII character '\x90' in file ./pemap/test/7zDec.exe on line 1, but no encoding declared; see http://python.org/dev/peps/pep-0263/ for details

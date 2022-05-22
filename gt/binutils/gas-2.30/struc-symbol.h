@@ -74,6 +74,13 @@ struct symbol_flags
    holds pointers both to this and to local_symbol structures.  See
    below.  */
 
+// binpang add
+// jump table related information, we only add the related information in i386/x86_64 architecture
+   struct jump_table{
+      unsigned int table_size; // the jump table size(number of jump table entry)
+      unsigned int entry_size; // the jump table entry size
+   } jmp_table;
+
 struct symbol
 {
   /* Symbol flags.  */
@@ -105,14 +112,7 @@ struct symbol
   TARGET_SYMBOL_FIELDS
 #endif
 
-// binpang add
-// jump table related information, we only add the related information in i386/x86_64 architecture
-#if defined(__i386__) || defined(__x86_64__)
-   struct jump_table{
-      unsigned int table_size; // the jump table size(number of jump table entry)
-      unsigned int entry_size; // the jump table entry size
-   } jmp_table;
-#endif
+struct jump_table jmp_table;
 
 };
 
@@ -157,9 +157,8 @@ struct local_symbol
 
 // binpang add
 // jump table related information, we only add the related information in i386/x86_64 architecture
-#if defined(__i386__) || defined(__x86_64__)
 struct jump_table jmp_table;
-#endif
+
 };
 
 #define local_symbol_converted_p(l) ((l)->lsy_section == reg_section)

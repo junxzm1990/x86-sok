@@ -10,12 +10,18 @@
 ################################################################
 
 import sys,logging
+import util 
 
 try:
+    from capstone import *
+    from capstone.arm64 import *
+    from capstone.arm import *
     from elftools.elf.elffile import ELFFile
     from elftools.elf.relocation import RelocationSection
     from elftools.elf.sections import SymbolTableSection
     from elftools.elf.dynamic import DynamicSection
+    from BlockUtil import *
+    import bbinfoconfig as bbl
 except ImportError:
     logging.critical("You need to install the following packages: elftools")
     sys.exit(1)
@@ -27,7 +33,8 @@ class ELFParser:
         self.f = open(self.fn, 'rb')
         self.bin = self.f.read()
         self.elf = ELFFile(self.f)
-        
+        self.md = Cs(bbl.BB_CS_MODE_1, bbl.BB_CS_MODE_2 + bbl.BB_ENDIAN)
+        self.md.detail = True
         # section data
         self.section_data = dict()
 
@@ -138,7 +145,7 @@ class ELFParser:
         """ Read all sections in a given ELF binary """
         def sectionInfo(s):
             section = self.elf.get_section(s)
-
+            
             # A section type is in its header, but the name was decoded and placed in a public attribute.
             print('  [%2d] Section %s' %(s, section.name))
             for s in sorted(self.struct_section.keys()):
@@ -168,7 +175,7 @@ class ELFParser:
     def extractSectionData(self):
         for s in range(1, self.elf.num_sections()):
             sec = self.elf.get_section(s)
-            self.section_data[sec.name] = sec.data()
+            self.section_data[sec.name] = sec.data() + b' '
 
     def getSectionVA(self, sn):
        # if sn == '.data.rel.ro':
@@ -191,6 +198,185 @@ class ELFParser:
             if s <= va < e:
                 return True
 
+        return False
+    def armRet(self,inst):
+        if inst.mnemonic == "bx":
+            for i in inst.operands:
+                if i.type == bbl.BB_OP_REG and inst.reg_name(i.value.reg) == 'lr':
+                    return True
+        last_reg = ""
+        if inst.mnemonic == "pop":
+            for i in inst.operands:
+                if i.type == bbl.BB_OP_REG:
+                    last_reg = inst.reg_name(i.value.reg)
+            if last_reg == "pc":
+                return True
+        if inst.mnemonic == "mov":
+            cnt = 0
+            reg = list()
+            for i in inst.operands:
+                if i.type == bbl.BB_OP_REG:
+                    reg.append(inst.reg_name(i.value.reg))
+                    cnt = cnt + 1
+            if cnt == 2 and reg[0] == "pc" and reg[1] == 'lr':
+                return True
+        return False
+    def armCheck(self,inst):
+        cnt = 0
+        reg = list()
+        for i in inst.operands:
+            if i.type == arm.ARM_OP_REG:
+                reg.append(inst.reg_name(i.value.reg))
+                cnt = cnt + 1
+        if cnt > 0 and reg[0] == "pc":
+            return True
+        return False
+    def multi_jump(self, pc, bbsize, sec_name, sec_va, bbtype, bgendian = False):
+        data = self.section_data[sec_name]
+
+        if bbl.BB_ARCH == 'MIPS':
+            return (list(), list())
+
+        addrst = pc - sec_va
+        addred = pc + bbsize - sec_va
+        # logging.info(f"[debug]: The section name is {sec_name}, pc is {pc}, addrst is {addrst}, addred is {addred}, sec_va is {sec_va}")
+
+        #print("0x%x 0x%x 0x%x" %(pc,bbsize,sec_va))
+        CODE = data[addrst: addred]
+        arm64_sepcial_jump = {"tbnz","tbz","cbz","cbnz"}
+        res = list()
+        condtion = list()
+        if (bbtype & 1 << 6) != 0:
+            self.md.mode = bbl.BB_CS_MODE_3 + bbl.BB_ENDIAN
+        else:
+            self.md.mode = bbl.BB_CS_MODE_2 + bbl.BB_ENDIAN
+        last_addr = pc
+        for inst in self.md.disasm(CODE, pc):
+            last_addr = inst.address + inst.size
+            if inst.mnemonic == "bl" or inst.mnemonic == "blr":
+                continue
+            if bbl.BB_JUMP_FLAG in inst.groups or \
+                bbl.BB_RET_FLAG in inst.groups or \
+                    (bbl.BB_RET_FLAG == -1 and self.armRet(inst)) or \
+                        (bbl.BB_RET_FLAG == -1 and self.armCheck(inst)) or \
+                        "loop "in inst.mnemonic.lower():
+                res.append(inst.address + inst.size)
+                if bbl.BB_CC_AL == -1 or len(inst.operands) == 0:
+                    condtion.append(False)
+                elif inst.cc != bbl.BB_CC_AL and inst.cc != bbl.BB_CC_INVALID:
+                    condtion.append(True)
+                elif inst.mnemonic in arm64_sepcial_jump:
+                    condtion.append(True)
+                else:
+                    condtion.append(False)
+        if last_addr not in res:
+            res.append(last_addr)
+            condtion.append(False)
+        return (res,condtion)
+
+    def check_terminator(self,pc,sec_name,sec_va,bbtype,bgendian = False):
+        data = self.section_data[sec_name]
+        offset = pc - sec_va
+        CODE = b''
+        if bgendian:
+            for i in range(offset,offset + 4):
+                CODE = CODE + bytes([data[i]])
+        else:
+            for i in range(offset,offset + 4,-1):
+                CODE = CODE + bytes([data[i]])
+        if (bbtype & (1 << 6)) != 0:
+            self.md.mode = bbl.BB_CS_MODE_3
+        else:
+            self.md.mode = bbl.BB_CS_MODE_2
+        for inst in self.md.disasm(CODE, pc):
+            #print("TT: 0x%x:\t%s\t%s" %(inst.address, inst.mnemonic, inst.op_str))
+            if inst.mnemonic == "bl" or inst.mnemonic == "blr":
+                continue
+            if len(inst.operands) > 0:
+                for i in inst.operands:
+                    if bbl.BB_JUMP_FLAG in inst.groups or \
+                        bbl.BB_RET_FLAG in inst.groups or \
+                            (bbl.BB_RET_FLAG == -1 and self.armRet(inst)) or \
+                        "loop "in inst.mnemonic.lower():
+                        return True
+                    return False
+        return False
+    def checkTBInstruction(self,fi):
+        CODE = self.getBinaryCode(fi)
+        pc = fi.VA
+        self.md.mode = bbl.BB_CS_MODE_3
+
+        for insn in self.md.disasm(CODE, pc):
+            if insn.mnemonic == 'tbb' or insn.mnemonic == 'tbh':
+                return True
+            #logging.debug("0x%x:\t%s\t%s\t0x%x" %(insn.address, insn.mnemonic, insn.op_str, result))
+        return False
+    def getBinaryCode(self,fi):
+        sn = fi.secName
+        offset = fi.offset
+        pc = fi.VA
+        sz = 0x4
+        data = self.section_data[sn]
+        return data[offset: offset + sz]
+
+    def getInsnSize(self,fi,bgendian,special_mode = False):
+        pc = fi.VA
+        if(special_mode):
+            self.md.mode = bbl.BB_CS_MODE_3
+        else:
+            self.md.mode = bbl.BB_CS_MODE_2
+
+        CODE = self.getBinaryCode(fi)
+        for insn in self.md.disasm(CODE,pc):
+            return insn.size
+        return 0
+
+    def getArmImmValue(self,fi,special_mode = False):
+        CODE = self.getBinaryCode(fi)
+        pc = fi.VA
+        result = 0x0
+        if(special_mode):
+            self.md.mode = bbl.BB_CS_MODE_3
+        else:
+            self.md.mode = bbl.BB_CS_MODE_2
+
+        for insn in self.md.disasm(CODE, pc):
+            if len(insn.operands) > 0:
+                for i in insn.operands:
+                    if i.type == bbl.BB_OP_IMM:
+                        result = i.value.imm
+                        if result > 0x1f:
+                            return result
+            break
+            #logging.debug("0x%x:\t%s\t%s\t0x%x" %(insn.address, insn.mnemonic, insn.op_str, result))
+        return result
+
+    # def getInstStr(i):
+    #     if i == None or i.id == 0:
+    #         return ""
+    #     return "0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str)
+
+    def getAccessReg(self,fi,special_mode = False):
+        CODE = self.getBinaryCode(fi)
+        pc = fi.VA
+        if(special_mode):
+            self.md.mode = bbl.BB_CS_MODE_3
+        else:
+            self.md.mode = bbl.BB_CS_MODE_2
+
+        insns = self.md.disasm(CODE, pc)
+        try:
+            insn = next(insns)
+        except Exception as e:
+            print(e)
+            return False
+        if len(insn.operands) > 0:
+            for i in insn.operands:
+                if i.type == bbl.BB_OP_REG and insn.reg_name(i.value.reg) == "pc":
+                    return True
+                if i.type == bbl.BB_OP_MEM and i.value.mem.base != 0:
+                    if insn.reg_name(i.value.mem.base) == "pc":
+                        return True
         return False
 
 if __name__ == '__main__':
