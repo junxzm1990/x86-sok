@@ -129,7 +129,7 @@ root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $
 
 Or pull the image from Docker Hub:
 
-```bash
+```console
 $ docker pull bin2415/x86_gt:0.1
 
 # check the image
@@ -149,13 +149,13 @@ root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $
 
 We cross compiled arm32 and aarch64 binaries in x86/x64 architecture. We need to install qemu:
 
-```bash
+```console
 sudo apt-get install qemu binfmt-support qemu-user-static
 ```
 
 #### arm32
 
-```bash
+```console
 $ docker pull z472421519/arm32_gt
 
 $ docker image ls
@@ -174,7 +174,7 @@ root@32380fe55c2a:/gt_arm32# source gcc32_arm_mthumb.rc
 
 #### aarch64
 
-```bash
+```console
 $ docker pull z472421519/aarch64_gt
 
 $ docker image ls
@@ -194,7 +194,7 @@ We cross compiled mips binaries in x86/x64 architecture. We need to install qemu
 
 #### mipsle 32
 
-```bash
+```console
 $ docker pull z472421519/mips32_gt
 
 $ docker image ls
@@ -210,7 +210,7 @@ root@7605562e48b3:/gt_mips32# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O
 
 #### mipsle 64
 
-```bash
+```console
 $ docker pull z472421519/mips64_gt
 
 $ docker image ls
@@ -328,7 +328,7 @@ windows@windows:/extract_gt/pemap# ./PEMap -iwRFE -P ./test/7zDec.pdb -r ./test/
 
 Install dependencies:
 
-```bash
+```console
 apt-get update && \
     apt-get install -y \
     build-essential \
