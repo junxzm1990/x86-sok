@@ -26,7 +26,7 @@ do
 	esac
 done
 
-if [[ ! -d $DIRECTORY ]]; then
+if [ ! -d $DIRECTORY ] && [ ! -f $DIRECTORY ]; then
 	echo $DIRECTORY
 	echo "Please input directory with (-d)!"
 	exit -1

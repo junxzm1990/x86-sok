@@ -166,3 +166,115 @@ And the compare result will be saved in table_7/res.log
 bash ../script/run_comp_elfmap_gt.sh -d ./x86_dataset/linux/ -s ../compare/compareInstsX86.py -p "elfMapInst" -o result/insns/elfmap
 bash collect_table_6.sh
 ```
+
+## How to build new testsuite
+
+In this section, we give an example that explains how to use our toolchains to build new testsuite with our toolchains and compare disassembler with our ground truth. We provide five docker images for [x86-x64](https://hub.docker.com/r/bin2415/x86_gt), [arm32](https://hub.docker.com/r/z472421519/arm32_gt),
+[aarch64](https://hub.docker.com/r/z472421519/aarch64_gt), [mipsle32](https://hub.docker.com/r/z472421519/mips32_gt), and [mipsle64](https://hub.docker.com/r/z472421519/mips64_gt).
+
+At the begining, we have some dependencies of deploying the toolchiains:
+
+```console
+# install docker firstly
+$ curl -fsSL https://get.docker.com/ | sudo sh
+$ sudo usermod -aG docker [user_id]
+
+# install qemu
+sudo apt-get install qemu binfmt-support qemu-user-static
+```
+
+### Build coretuils
+
+Here is the example that use our arm32 toolchain to cross compile coreutils:
+
+```console
+## pull the docker image
+$ docker pull z472421519/arm32_gt
+
+$ docker image ls
+REPOSITORY                   TAG        IMAGE ID       CREATED         SIZE
+z472421519/arm32_gt          latest     beb7bba8d960   7 hours ago     5.11GB
+
+$ docker run --rm -it -v $PWD:/opt/shared z472421519/arm32_gt /bin/bash
+
+## insider docker
+## configure CC, CXX, CFLAGS and CXXFLAGS
+root@32380fe55c2a:/gt_arm32# source gcc32_arm.rc
+root@32380fe55c2a:/gt_arm32# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $CXXFLAGS"
+root@32380fe55c2a:/gt_arm32# cd /opt/shared
+## download coreutils
+root@32380fe55c2a:/opt/shared# wget -c https://mirror.powerfly.ca/gnu/coreutils/coreutils-8.30.tar.xz && tar -xvf coreutils-8.30.tar.xz && cd coreutils-8.30
+root@32380fe55c2a:/opt/shared/coreutils-8.30# mkdir build_gcc_O2 && cd build_gcc_O2
+root@32380fe55c2a:/opt/shared/coreutils-8.30/build_gcc_O2# export FORCE_UNSAFE_CONFIGURE=1 && ../configure --prefix=$PWD
+root@32380fe55c2a:/opt/shared/coreutils-8.30/build_gcc_O2# make -j && make install
+## The compiled binary is installed in /opt/shared/coreutils-8.30/build_gcc_O2/bin
+```
+
+### Extract ground truth
+
+```console
+## outside docker. suppose we are currently in `artifact_eval` directory, and the built binaries is in `./coreutils-8.30/build_gcc_O2/bin`
+## we want to extract ground truth of `./coreutils-8.30/build_gcc_O2/bin`
+bash ../script/run_extract_linux.sh -d ./build_gcc_O2/bin/ls -s ../extract_gt/extractBB.py
+
+## the extracted ground truth is `./coreutils-8.30/build_gcc_O2/bin/gtBlock_ls.pb`
+```
+
+### Compare with disassembler
+
+Here, we compare angr with our ground truth. The steps of extracting disassembly result of angr is shown as following:
+
+```console
+# install angr
+pip3 install angr
+
+# strip targeted binary: ls
+cp ./coreutils-8.30/build_gcc_O2/bin/ls ./coreutils-8.30/build_gcc_O2/bin/ls.strip && strip ./coreutils-8.30/build_gcc_O2/bin/ls.strip
+# extract disassembly result of angr
+python3 ../disassemblers/angr/angrBlocks.py -b ./coreutils-8.30/build_gcc_O2/bin/ls.strip -o ./coreutils-8.30/build_gcc_O2/bin/BlockAngr_ls.pb
+```
+
+#### Compare instruction
+
+```console
+python3 ../compare/compareInstsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockAngr_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+
+# the result is shown:
+...
+[Result]:The total instruction number is 17558
+[Result]:Instruction false positive number is 68, rate is 0.003873
+[Result]:Instruction false negative number is 5, rate is 0.000285
+[Result]:Padding byte instructions number is 5, rate is 0.000284
+[Result]:Precision 0.996142
+```
+
+#### Compare Function
+
+```console
+python3 ../compare/compareFuncsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockAngr_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+
+# the result is shown:
+...
+[Result]:The total Functions in ground truth is 288
+[Result]:The total Functions in compared is 329
+[Result]:False positive number is 55
+[Result]:False negative number is 17
+[Result]:Precision 0.832827
+[Result]:Recall 0.951389
+```
+
+#### Compare Jump Table
+
+```console
+python3 ../compare/compareJmpTableArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockAngr_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+
+# the result is shown:
+...
+[Result]:The total jump table in ground truth is 19
+[Result]:The total jump table in compared is 128
+[Result]:False negative number is 0
+[Result]:False positive number is 109
+[Result]:Wrong successors number is 19
+[Result]: Recall: 1.000000
+[Result]: Precision: 0.148438
+```
