@@ -222,59 +222,61 @@ bash ../script/run_extract_linux.sh -d ./build_gcc_O2/bin/ls -s ../extract_gt/ex
 
 ### Compare with disassembler
 
-Here, we compare angr with our ground truth. The steps of extracting disassembly result of angr is shown as following:
+Here, we compare radare with our ground truth. The steps of extracting disassembly result of radare2 are shown as following:
 
 ```console
-# install angr
-pip3 install angr
+# install radare
+sudo apt install radare2
+pip3 install r2pipe
 
 # strip targeted binary: ls
 cp ./coreutils-8.30/build_gcc_O2/bin/ls ./coreutils-8.30/build_gcc_O2/bin/ls.strip && strip ./coreutils-8.30/build_gcc_O2/bin/ls.strip
-# extract disassembly result of angr
-python3 ../disassemblers/angr/angrBlocks.py -b ./coreutils-8.30/build_gcc_O2/bin/ls.strip -o ./coreutils-8.30/build_gcc_O2/bin/BlockAngr_ls.pb
+# extract disassembly result of radare2
+python3 ../disassemblers/radare/radareBB.py -b ./coreutils-8.30/build_gcc_O2/bin/ls.strip -o ./coreutils-8.30/build_gcc_O2/bin/BlockRadare_ls.pb
 ```
 
 #### Compare instruction
 
 ```console
-python3 ../compare/compareInstsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockAngr_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+python3 ../compare/compareInstsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockRadare_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
 
 # the result is shown:
 ...
 [Result]:The total instruction number is 17558
-[Result]:Instruction false positive number is 68, rate is 0.003873
-[Result]:Instruction false negative number is 5, rate is 0.000285
-[Result]:Padding byte instructions number is 5, rate is 0.000284
-[Result]:Precision 0.996142
+[Result]:Instruction false positive number is 278, rate is 0.015833
+[Result]:Instruction false negative number is 3630, rate is 0.206743
+[Result]:Padding byte instructions number is 0, rate is 0.000000
+[Result]:Precision 0.980431
+[Result]:Recall 0.793257
 ```
 
 #### Compare Function
 
 ```console
-python3 ../compare/compareFuncsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockAngr_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+python3 ../compare/compareFuncsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockRadare_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
 
 # the result is shown:
 ...
 [Result]:The total Functions in ground truth is 288
-[Result]:The total Functions in compared is 329
-[Result]:False positive number is 55
-[Result]:False negative number is 17
-[Result]:Precision 0.832827
-[Result]:Recall 0.951389
+[Result]:The total Functions in compared is 195
+[Result]:False positive number is 23
+[Result]:False negative number is 116
+[Result]:Precision 0.882051
+[Result]:Recall 0.597222
 ```
 
 #### Compare Jump Table
 
 ```console
-python3 ../compare/compareJmpTableArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockAngr_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+python3 ../compare/compareJmpTableArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockRadare_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
 
 # the result is shown:
 ...
-[Result]:The total jump table in ground truth is 19
-[Result]:The total jump table in compared is 128
+[Result]:The total jump table in ground truth is 18
+[Result]:The total jump table in compared is 24
 [Result]:False negative number is 0
-[Result]:False positive number is 109
-[Result]:Wrong successors number is 19
-[Result]: Recall: 1.000000
-[Result]: Precision: 0.148438
+[Result]:False positive number is 6
+[Result]:Wrong successors number is 17
+[Result]: Recall: 0.055556
+[Result]: Precision: 0.041667
 ```
