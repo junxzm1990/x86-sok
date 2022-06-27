@@ -111,7 +111,7 @@ $ sudo usermod -aG docker [user_id]
 
 # build our toolchain
 $ git clone git@github.com:junxzm1990/x86-sok.git
-$ cd x86-sok/gt
+$ cd x86-sok/gt/x86
 $ docker build -t x86_gt ./
 
 # check the image
@@ -873,6 +873,10 @@ Finally, the tool hooks the process of generating sections and add section `.gt`
 
 - [1] Assembler Directives: https://eng.libretexts.org/Bookshelves/Electrical_Engineering/Electronics/Implementing_a_One_Address_CPU_in_Logisim_(Kann)/02%3A_Assembly_Language/2.03%3A_Assembler_Directives#:~:text=Assembler%20directives%20are%20directions%20to,not%20translated%20into%20machine%20code.
 - [2] Intro to the LLVM MC Project: http://blog.llvm.org/2010/04/intro-to-llvm-mc-project.html
+
+## Reproduction
+
+- Reproduction of Usenix paper: [readme](./artifact_eval/README.md)
 
 ## License
 
