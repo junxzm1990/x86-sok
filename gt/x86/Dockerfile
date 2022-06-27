@@ -24,6 +24,6 @@ RUN apt-get -y update && apt-get -y install build-essential \
         gawk \
 	sudo
 
-COPY ../ /gt_x86
+COPY ./ /gt_x86
 WORKDIR /gt_x86/x86
 RUN bash ./docker_build.sh

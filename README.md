@@ -111,8 +111,8 @@ $ sudo usermod -aG docker [user_id]
 
 # build our toolchain
 $ git clone git@github.com:junxzm1990/x86-sok.git
-$ cd x86-sok/gt/x86
-$ docker build -t x86_gt ./
+$ cd x86-sok/gt
+$ docker build -t x86_gt -f ./x86/Dockerfile .
 
 # check the image
 $ docker image ls
