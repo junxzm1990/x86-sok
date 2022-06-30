@@ -250,8 +250,8 @@ echo
 if [ ! -f ${PWD_PATH}/succeed/glibc ]; then
     cd $PWD_PATH
 
-    ENV64=${SRC_PATH}/gcc64.rc
-    ENV32=${SRC_PATH}/gcc32.rc
+    ENV64=${SRC_PATH}/x86/gcc64.rc
+    ENV32=${SRC_PATH}/x86/gcc32.rc
 
     wget -c https://ftp.gnu.org/gnu/libc/glibc-2.27.tar.xz
     tar -xvf glibc-2.27.tar.xz

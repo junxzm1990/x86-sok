@@ -15,7 +15,7 @@ SRC_PATH=`realpath $SRC_PATH`
 
 PWD_PATH="${SRC_PATH}/build"
 
-SRC_PATH=`realpath ${SRC_PATH}/../`
+SRC_PATH=`realpath ${SRC_PATH}/..`
 
 
 if [ ! -d $PWD_PATH ];then
@@ -65,7 +65,7 @@ cd $PWD_PATH
 echo
 echo -e "${BLUE}===================== build shuffleInfo.so ======================${NC}"
 echo
-PROTODEF_DIR="$PWD_PATH/../proto"
+PROTODEF_DIR="$PWD_PATH/../../proto"
 PROTO="shuffleInfo.proto"
 SHUFFLEINFO="shuffleInfo.so"
 CC_HDR="shuffleInfo.pb.h"

@@ -6,6 +6,10 @@ We provide large-scale dataset built by our toolchains for x86/x64, arm32/mthumb
 
 ## Set up environment
 
+There are two ways to setting up the environments: 1) in your machine(we have tested in Ubuntu 20.04) or 2) Docker
+
+### Ubuntu 20.04
+
 ```console
 apt-get update && \
     apt-get install -y \
@@ -22,6 +26,39 @@ pip3 install protobuf \
     capstone \
     pyelftools \
     sqlalchemy
+```
+
+### Docker
+
+```console
+docker pull bin2415/py_gt
+```
+
+## Byteweight(~40mins)
+
+> Attention: the decompressed space is ~130GB.
+**Steps to reproduce results in Table 2:**
+
+We prepared a vm image of Virtualbox. The trained model is in the vm. The steps to reproduce is:
+
+- Download the byteweight image: [image](https://drive.google.com/file/d/1Cv4Yf8f2_eXOvMtxFg00l3DGXD2jaLPb/view?usp=sharing).
+
+- Import the image in Virtualbox.
+
+```
+# The username and password of the vm are: byteweight:password
+# mount the disk
+sudo mount /dev/sdb /work
+```
+
+- Test the model of byteweight:
+
+```
+cd ~/ByteWeight/code/script
+## collect the Recall and Precision of Symbol information(Row 2 and Row 4 in the table)
+bash run_compare_symbol.sh && bash run_symbol.sh
+## collect the Recall and Precision of Oracle(Row 3 and Row 5 in the table)
+bash run_compare_oracle.sh && bash run_oracle.sh
 ```
 
 ## XDA(~1h)
