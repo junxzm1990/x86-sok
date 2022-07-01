@@ -302,6 +302,30 @@ Extract results of objdump:
 /opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/objdump/objdumpBB.py -p "BlockObjdump"
 ```
 
+#### IDA Pro
+
+Ida pro is a commecial software, so the binary is not available. Extract results of ida:
+
+```console
+# x86/x64
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./x86_dataset/linux/ -s ../disassemblers/ida/runIDAScript.py -p "BlockIda"
+
+# arm/mips
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/ida/runIDAScript.py -p "BlockIda"
+```
+
+#### BinaryNinja
+
+BinaryNinja is a commecial software, so the binary is not available. Extract results of ida:
+
+```console
+# x86/x64
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./x86_dataset/linux/ -s ../disassemblers/ninja/ninjaBB.py -p "BlockIda"
+
+# arm/mips
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/ninja/ninjaBB.py -p "BlockIda"
+```
+
 ### Extract Ground Truth
 
 ```console
