@@ -7,6 +7,10 @@ print_help() {
 }
 
 PREFIX=""
+CUR_PATH=`realpath $0`
+CUR_PATH=`dirname $CUR_PATH`
+
+ghidra_path="/usr/ghidra_9.2.3_PUBLIC/support/analyzeHeadless"
 
 while getopts "hd:s:p:" arg
 do
@@ -16,9 +20,6 @@ do
             ;;
         d)
             DIRECTORY=$OPTARG
-            ;;
-        s)
-            SCRIPT=$OPTARG
             ;;
         p)
             PREFIX=$OPTARG
@@ -31,29 +32,27 @@ if [[ ! -d $DIRECTORY ]]; then
     exit -1
 fi
 
-if [[ ! -f $SCRIPT ]]; then
-    echo "Please input disassembler path with (-s)!"
-    exit -1
-fi
-
 if [[ -z $PREFIX ]]; then
     echo "Please input the prefix with (-p)!"
     exit -1
 fi
 
-for f in `find $DIRECTORY -executable -type f | grep -v striped_exes | grep _strip | grep -v Ida`; do
+for f in `find $DIRECTORY -executable -type f | grep _strip`; do
     echo "==================current file is $f================="
     dir_name=`dirname $f`
     base_name=`basename $f`
     output=${dir_name}/${PREFIX}_${base_name}.pb
+    log=${dir_name}/${PREFIX}_${base_name}.log
 
     #if [ -f $output ]; then
     #    echo "exists, skip!"
     #    continue
     #fi
 
-    cmd="python3 $SCRIPT -b $f -o $output"
+    export GHIDRA_OUT_PATH="$output"
+    export GHIDRA_STAT_OUT_PATH="$log"
+    project=`cat /proc/sys/kernel/random/uuid | sed 's/[-]//g' | head -c 20; echo;`
+    cmd="$ghidra_path ~/ghidra/project $project -deleteProject -scriptPath $CUR_PATH/../disassemblers/ghidra -postScript ghidraBB.py -import $f"
     echo "$cmd"
-    python3 $SCRIPT -b $f -o $output > /dev/null
-    
+    $ghidra_path ~/ghidra/project $project -deleteProject -scriptPath $CUR_PATH/../disassemblers/ghidra -postScript ghidraBB.py -import $f
 done

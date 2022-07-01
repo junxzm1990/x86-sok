@@ -204,6 +204,114 @@ bash ../script/run_comp_elfmap_gt.sh -d ./x86_dataset/linux/ -s ../compare/compa
 bash collect_table_6.sh
 ```
 
+## Collect Results of Disassemblers and Extract Ground Truth(Optional)
+
+We put the results of binary disassemblers and ground truth into dataset. So this step is optional and it takes **several days** to process.
+
+### Collect Results of Disassemblers
+
+We built popular open-source disassemblers(radare2, angr, bap, ghidra, dyninst, and objdump) in docker image `bin2415/py_gt`.
+
+```console
+$ docker pull bin2415/py_gt
+$ docker run -it --privileged --name py_gt -v $PWD/x86-sok:/opt bin2415/py_gt /bin/bash
+
+## prepare striped binaries
+/opt/artifact_eval$ bash ../script/extract_strip.sh ./x86_dataset
+/opt/artifact_eval$ bash ../script/extract_strip.sh ./table_7/testsuite
+```
+
+#### Radare2
+
+Extract results of radare2:
+
+```console
+# x86/x64 dataset
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./x86_dataset/linux/ -s ../disassemblers/radare/radareBB.py -p "BlockRadare"
+
+# arm/mips dataset
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/radare/radareBB.py -p "BlockRadare"
+```
+
+#### Angr
+
+Extract results of angr:
+
+```console
+/opt/artifact_eval$ conda activate angr
+
+# x86/x64 dataset
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./x86_dataset/linux/ -s ../disassemblers/angr/angrBlocks.py -p "BlockAngr"
+
+# x86/x64 dataset
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/angr/angrBlocks.py -p "BlockAngr"
+
+conda deactivate
+```
+
+#### Bap
+
+Extract results of bap:
+
+```console
+/opt/artifact_eval$ opam switch 4.12.1
+/opt/artifact_eval$ eval $(opam env)
+
+# x86/x64 dataset
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./x86_dataset/linux/ -s ../disassemblers/bap/bapBB.py -p "BlockBap"
+
+# arm/mips dataset
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/bap/bapBB.py -p "BlockBap"
+```
+
+#### Ghidra
+
+Extract results of ghidra:
+
+```console
+# x86/x64 dataset
+/opt/artifact_eval$ bash ../script/run_disassembler_ghidra.sh -d ./x86_dataset/linux/ -p "BlockGhidra"
+
+# arm/mips dataset
+/opt/artifact_eval$ bash ../script/run_disassembler_ghidra.sh -d ./table_7/testsuite/ -p "BlockGhidra"
+```
+
+#### Dyninst
+
+Extract results of dyninst:
+
+```console
+/opt/artifact_eval$ pushd $PWD && cd ../disassemblers/dyninst && make && popd
+
+# x86/x64 dataset
+/opt/artifact_eval$ bash ../script/run_disassembler_dyninst.sh -d ./x86_dataset/linux/ -s ../disassemblers/dyninst/dyninstBlocks -p "BlockDyninst932"
+
+# arm/mips dataset
+/opt/artifact_eval$ bash ../script/run_disassembler_dyninst.sh -d ./table_7/testsuite/ -s ../disassemblers/dyninst/dyninstBlocks -p "BlockDyninst932"
+```
+
+#### Objdump
+
+Extract results of objdump:
+
+```console
+# x86/x64
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./x86_dataset/linux/ -s ../disassemblers/objdump/objdumpBB.py -p "BlockObjdump"
+
+# arm/mips
+/opt/artifact_eval$ bash ../script/run_disassembler.sh -d ./table_7/testsuite/ -s ../disassemblers/objdump/objdumpBB.py -p "BlockObjdump"
+```
+
+### Extract Ground Truth
+
+```console
+# x86/x64
+/opt/artifact_eval$ bash ../script/run_extract_linux.sh -d ./x86_dataset/linux/ -s ../extract_gt/extractBB.py -p "gtBlock"
+
+# arm/mips
+/opt/artifact_eval$ bash ../script/run_extract_linux.sh -d ./table_7/testsuite -s ../extract_gt/extractBB.py -p "gtBlock"
+```
+
 ## How to build new testsuite
 
 In this section, we give an example that explains how to use our toolchains to build new testsuite with our toolchains and compare disassembler with our ground truth. We provide five docker images for [x86-x64](https://hub.docker.com/r/bin2415/x86_gt), [arm32](https://hub.docker.com/r/z472421519/arm32_gt),

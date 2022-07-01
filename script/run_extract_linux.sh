@@ -46,10 +46,10 @@ for f in `find $DIRECTORY -executable -type f | grep -v strip`; do
 	base_name=`basename $f`
 
 	output=${dir_name}/${PREFIX}_${base_name}.pb
-	if [ -f $output ]; then
-		echo "skip"
-		continue
-	fi
+	# if [ -f $output ]; then
+	# 	echo "skip"
+	# 	continue
+	# fi
 	output_log=${dir_name}/${PREFIX}_${base_name}.log
 
 	objcopy --dump-section .rand=$gt_gz $f && yes | gzip -d $gt_gz

@@ -27,12 +27,8 @@ do
 done
 
 if [[ ! -d $DIRECTORY ]]; then
+    echo $DIRECTORY
     echo "Please input directory with (-d)!"
-    exit -1
-fi
-
-if [[ ! -f $SCRIPT ]]; then
-    echo "Please input disassembler path with (-s)!"
     exit -1
 fi
 
@@ -41,19 +37,19 @@ if [[ -z $PREFIX ]]; then
     exit -1
 fi
 
-for f in `find $DIRECTORY -executable -type f | grep -v striped_exes | grep _strip | grep -v Ida`; do
+for f in `find $DIRECTORY -executable -type f | grep _strip`; do
     echo "==================current file is $f================="
     dir_name=`dirname $f`
     base_name=`basename $f`
     output=${dir_name}/${PREFIX}_${base_name}.pb
+    log=${dir_name}/${PREFIX}_${base_name}.log
 
     #if [ -f $output ]; then
     #    echo "exists, skip!"
     #    continue
     #fi
 
-    cmd="python3 $SCRIPT -b $f -o $output"
+    cmd="$SCRIPT --binary $f --output $output -statics $log"
     echo "$cmd"
-    python3 $SCRIPT -b $f -o $output > /dev/null
-    
+    $SCRIPT --binary $f --output $output -statics $log
 done
