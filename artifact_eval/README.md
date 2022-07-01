@@ -223,7 +223,7 @@ $ docker run -it --privileged --name py_gt -v $PWD/x86-sok:/opt bin2415/py_gt /b
 
 #### Radare2
 
-Extract results of radare2:
+The steps of extracting results of radare2:
 
 ```console
 # x86/x64 dataset
@@ -235,7 +235,7 @@ Extract results of radare2:
 
 #### Angr
 
-Extract results of angr:
+The steps of extracting results of angr:
 
 ```console
 /opt/artifact_eval$ conda activate angr
@@ -251,7 +251,7 @@ conda deactivate
 
 #### Bap
 
-Extract results of bap:
+The steps of extracting results of bap:
 
 ```console
 /opt/artifact_eval$ opam switch 4.12.1
@@ -266,7 +266,7 @@ Extract results of bap:
 
 #### Ghidra
 
-Extract results of ghidra:
+The steps of extracting results of ghidra:
 
 ```console
 # x86/x64 dataset
@@ -278,7 +278,7 @@ Extract results of ghidra:
 
 #### Dyninst
 
-Extract results of dyninst:
+The steps of extracting results of dyninst:
 
 ```console
 /opt/artifact_eval$ pushd $PWD && cd ../disassemblers/dyninst && make && popd
@@ -292,7 +292,7 @@ Extract results of dyninst:
 
 #### Objdump
 
-Extract results of objdump:
+The steps of extracting results of objdump:
 
 ```console
 # x86/x64
@@ -304,7 +304,7 @@ Extract results of objdump:
 
 #### IDA Pro
 
-Ida pro is a commecial software, so the binary is not available. Extract results of ida:
+Ida pro is a commecial software, so the binary is not available. The steps of extracting results of ida:
 
 ```console
 # x86/x64
@@ -316,7 +316,7 @@ Ida pro is a commecial software, so the binary is not available. Extract results
 
 #### BinaryNinja
 
-BinaryNinja is a commecial software, so the binary is not available. Extract results of ida:
+BinaryNinja is a commecial software, so the binary is not available. The steps of extracting results of binaryninja:
 
 ```console
 # x86/x64
