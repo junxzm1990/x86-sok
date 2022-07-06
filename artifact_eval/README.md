@@ -37,6 +37,7 @@ docker pull bin2415/py_gt
 ## Byteweight(~40mins)
 
 ### Reproduction of trained model
+
 > Attention: the decompressed space is ~130GB.
 **Steps to reproduce results in Table 2:**
 
@@ -121,14 +122,24 @@ cp -r xda/XDAInstTest/ XDA_repo
 cd XDA_repo
 ```
 
-### run
+### Reproduction of Trained Model
+
+#### run
 
 ```console
 bash run_oracle.sh
 bash run_elfmap.sh
 ```
 
-### Train the New Model
+#### check the result
+
+```console
+bash calculate_oracle.sh
+bash calculate_elfmap.sh
+```
+
+
+### Train a New Model
 
 If you want to train the a new model, we also provide following instructions.
 
@@ -198,13 +209,6 @@ bash scripts/finetune/finetune_inst_elfmap.sh
 #### Testing
 
 Please refer this [step](https://github.com/junxzm1990/x86-sok/tree/master/artifact_eval#run)
-
-### check the result
-
-```console
-bash calculate_oracle.sh
-bash calculate_elfmap.sh
-```
 
 ## Performance of Dyninst on Complex Constructs(~40mins)
 
