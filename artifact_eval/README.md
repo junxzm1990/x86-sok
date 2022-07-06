@@ -64,7 +64,7 @@ bash run_compare_oracle.sh && bash run_oracle.sh
 
 ### Train a new model
 
-Here we use `coreutils` in our x86/x64 dataset as the dataset of training ByteWeight as an example.
+Here we use `coreutils` of our x86/x64 dataset to train the ByteWeight model as the example.
 
 #### Preprocess
 
