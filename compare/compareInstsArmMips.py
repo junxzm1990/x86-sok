@@ -188,7 +188,9 @@ def compareInsts(groundTruth, compared):
     """
     compare the basic blocks with their address, size, and successors
     """
-    logging.info("Compare the basic blocks:")
+    if len(compared) == 0:
+        logging.warning("The compared is null!")
+        return
     falsePositive = 0 # false positive number
     falseNegative = 0 # false negative number
     truePositive = 0

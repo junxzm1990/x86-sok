@@ -1,5 +1,4 @@
 output=./result/insns/elfmap
-output=/work2/compare_data/x86/elfmap_new_new
 echo "The number of False Positives of O0:"
 grep "False Pos" -r $output | grep O0 | wc -l
 echo "The number of False Positives of O1:"

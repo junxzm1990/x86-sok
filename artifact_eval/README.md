@@ -36,6 +36,7 @@ docker pull bin2415/py_gt
 
 ## Byteweight(~40mins)
 
+### Reproduction of trained model
 > Attention: the decompressed space is ~130GB.
 **Steps to reproduce results in Table 2:**
 
@@ -60,6 +61,42 @@ bash run_compare_symbol.sh && bash run_symbol.sh
 ## collect the Recall and Precision of Oracle(Row 3 and Row 5 in the table)
 bash run_compare_oracle.sh && bash run_oracle.sh
 ```
+
+### Train a new model
+
+Here we use `coreutils` in our x86/x64 dataset as the dataset of training ByteWeight as an example.
+
+#### Preprocess
+
+```console
+## bash byteweight/preprocess.sh <path of coreutils> <dst path of preprocessed dataset>
+bash byteweight/preprocess.sh ./x86_dataset/linux/utils/coreutils ./result/byteweight/dataset
+```
+
+Two folders(oracle and symbol) are generated in `result/byteweight/dataset`
+
+#### Train
+
+Copy the two folders into virtual machine and run following instructions.
+
+```
+$ cd ~/ByteWeight/code/script
+# train oracle dataset
+$ bash experiment_lin.sh <path of dataset/oracle>
+# train symbol dataset
+$ bash experiment_lin.sh <path of dataset/symbol>
+```
+
+#### Test
+
+Overwrite the `dataset/symbol/binary` with `dataset/oracle/binary` at first.
+
+```console
+cp dataset/oracle/binary/* dataset/symbol/binary/*
+```
+
+And refer to the `~/ByteWeight/code/script/run_compare_oracle.sh` test the trained model.
+
 
 ## XDA(~1h)
 
@@ -90,6 +127,79 @@ cd XDA_repo
 bash run_oracle.sh
 bash run_elfmap.sh
 ```
+
+### Train the New Model
+
+If you want to train the a new model, we also provide following instructions.
+
+#### Preprocess the dataset
+
+Here we use `coreutils` of our x86/x64 dataset to train the XDA model as the example.
+
+```console
+## bash xda/runOracleGTXDA.sh -d <dataset> -o <the path to save the preprocessed data> -s xda/OracleGTXDA.py -p <prefix of ground truth>
+## here, we use the `coreutils` as example
+## convert ground truth of `Oracle`
+$ bash xda/runOracleGTXDA.sh -d ./x86_dataset/linux/utils/coreutils -s xda/OracleGTXDA.py -p "gtBlock" -o ./result/xda/preprocess/oracleGT
+## convert ground truth of `elfMap`
+$ bash xda/runOracleGTXDA.sh -d ./x86_dataset/linux/utils/coreutils -s xda/OracleGTXDA.py -p "elfMapInst" -o ./result/xda/preprocess/elfmapGT
+```
+
+Select the dataset of training randomly.
+
+```console
+ls ./result/xda/preprocess/oracleGT > /tmp/dataset.list
+# select 9/10 of dataset to train
+shuf -n 567 /tmp/dataset.list > result/xda/train64.list
+```
+
+Collect the training dataset and validing dataset into files like [them](https://github.com/CUMLSec/XDA/tree/main/data-src/funcbound).
+
+```console
+## training dataset of Oracle ground truth
+## python3 xda/preprocess.py -t <path to train64.list> -i <folder of preprocessed data> -o <path to data-src inside xda_repo>
+$ mkdir -p XDA_repo/data-src/instbound_oracle
+$ python3 xda/preprocess.py -t result/xda/train64.list -i ./result/xda/preprocess/oracleGT -o XDA_repo/data-src/instbound_oracle/train
+
+## training dataset of elfmap ground truth
+$ mkdir -p XDA_repo/data-src/instbound_elfmap
+$ python3 xda/preprocess.py -t result/xda/train64.list -i ./result/xda/preprocess/elfmapGT -o XDA_repo/data-src/instbound_elfmap/train
+
+## validing dataset of Oracle ground truth
+$ python3 xda/preprocess.py -t result/xda/train64.list -i ./result/xda/preprocess/oracleGT -o XDA_repo/data-src/instbound_oracle/valid -v
+
+## validing dataset of elfmap ground truth
+$ python3 xda/preprocess.py -t result/xda/train64.list -i ./result/xda/preprocess/oracleGT -o XDA_repo/data-src/instbound_elfmap/valid -v
+```
+
+Preprocess the data:
+
+```
+```console
+$ conda activate xda
+$ cp xda/preprocess_scripts/* xda_repo/scripts/finetune
+$ cd xda_repo
+$ bash scripts/finetune/preprocess_oracle.sh
+$ bash scripts/finetune/preprocess_elfmap.sh
+```
+```
+
+#### Training
+
+As we only train the finetuned models, we reused the pretrained model of XDA. Please download the pretrained model [here](https://drive.google.com/file/d/1PLoRMYKUnsa2NJbmpOOkOeeQjjHm3sy4/view?usp=sharing) and put it in `XDA_repo/checkpoints/pretrain_all/`.
+
+```console
+# train the model of oracle ground truth
+bash scripts/finetune/finetune_inst_oracle.sh
+
+# train the model of elfmap ground truth
+bash scripts/finetune/finetune_inst_elfmap.sh
+```
+
+
+#### Testing
+
+Please refer this [step](https://github.com/junxzm1990/x86-sok/tree/master/artifact_eval#run)
 
 ### check the result
 

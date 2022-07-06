@@ -95,6 +95,9 @@ def compareInsts(groundTruth, compared):
     """
     compare the basic blocks with their address, size, and successors
     """
+    if len(compared) == 0:
+        logging.warning("Compared file is null!")
+        return
     logging.info("Compare the basic blocks:")
     falsePositive = 0 # false positive number
     falseNegative = 0 # false negative number

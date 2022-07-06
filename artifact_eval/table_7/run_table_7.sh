@@ -1,3 +1,4 @@
+g++ -o collect_res ./collect_res.cpp
 script_path=$0
 base=`dirname $script_path`
 base=`realpath $base`
