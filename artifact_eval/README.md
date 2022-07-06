@@ -174,14 +174,12 @@ $ python3 xda/preprocess.py -t result/xda/train64.list -i ./result/xda/preproces
 
 Preprocess the data:
 
-```
 ```console
 $ conda activate xda
 $ cp xda/preprocess_scripts/* xda_repo/scripts/finetune
 $ cd xda_repo
 $ bash scripts/finetune/preprocess_oracle.sh
 $ bash scripts/finetune/preprocess_elfmap.sh
-```
 ```
 
 #### Training
