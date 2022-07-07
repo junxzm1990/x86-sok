@@ -3,8 +3,6 @@ SRC_FILE=${BASH_SOURCE[0]}
 GT_PATH=`dirname $SRC_FILE`
 GT_PATH=`realpath $GT_PATH`
 
-echo $GT_PATH
-
 GCC_PATH=${GT_PATH}/build/executable_gcc/bin
 LIBC_PATH=${GT_PATH}/build/glibc_build_64
 BINUTILS_PATH=${GT_PATH}/build/executable_binutils

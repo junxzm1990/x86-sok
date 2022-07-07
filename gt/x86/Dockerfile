@@ -26,4 +26,4 @@ RUN apt-get -y update && apt-get -y install build-essential \
 
 COPY ./ /gt_x86
 WORKDIR /gt_x86/x86
-RUN bash ./docker_build.sh
+#RUN bash ./docker_build.sh
