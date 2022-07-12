@@ -138,7 +138,10 @@ bash run_elfmap.sh
 #### check the result
 
 ```console
+# get the result of `Oracle` line of table 3
 bash calculate_oracle.sh
+
+# get the result of `Debug` line of table 3
 bash calculate_elfmap.sh
 ```
 
