@@ -484,6 +484,8 @@ REPOSITORY                   TAG        IMAGE ID       CREATED         SIZE
 z472421519/arm32_gt          latest     beb7bba8d960   7 hours ago     5.11GB
 
 $ docker run --rm -it -v $PWD:/opt/shared z472421519/arm32_gt /bin/bash
+# it is fine for the following warning message
+WARNING: The requested image's platform (linux/arm/v7) does not match the detected host platform (linux/amd64) and no specific platform was requested
 
 ## insider docker
 ## configure CC, CXX, CFLAGS and CXXFLAGS
@@ -500,7 +502,7 @@ root@32380fe55c2a:/opt/shared/coreutils-8.30/build_gcc_O2# make -j && make insta
 
 ### Extract ground truth
 
-Start a `py_gt` docker, suppose we are in the `artifact_eval` folder.
+Start a `py_gt` docker container, suppose we are in the `artifact_eval` folder.
 
 ```console
 docker run -it --rm -v $PWD/../:/opt/shared bin2415/py_gt /bin/bash
