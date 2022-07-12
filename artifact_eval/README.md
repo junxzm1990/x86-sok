@@ -469,6 +469,9 @@ $ sudo usermod -aG docker [user_id]
 
 # install qemu
 sudo apt-get install qemu binfmt-support qemu-user-static
+
+# run the multiarch/qemu-user-static container to register:
+sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```
 
 ### Build coretuils
