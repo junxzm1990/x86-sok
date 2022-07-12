@@ -107,10 +107,14 @@ And refer to the `~/ByteWeight/code/script/run_compare_oracle.sh` test the train
 
 ```console
 git clone https://github.com/CUMLSec/XDA XDA_repo
+# install conda
+wget -c https://repo.anaconda.com/archive/Anaconda3-2022.05-Linux-x86_64.sh
+bash ./Anaconda3-2022.05-Linux-x86_64.sh
+# environment setup
 conda create -n xda python=3.7 numpy scipy scikit-learn colorama
 conda activate xda
 conda install pytorch torchvision torchaudio cudatoolkit=11.0 -c pytorch
-pip install --editable .
+cd XDA_repo && pip install --editable .
 ```
 
 We prepared our finturned models [here](https://drive.google.com/file/d/1Y4cSe-ggywbYHcpAS9y_Dot-K7q49bdK/view?usp=sharing). Decompress and put them into `XDA_repo/checkpoints/`. Download `data-bin` [here](https://drive.google.com/file/d/1F1k5z2dPcyCMP6bUuB7vrxsDZDH6ueC2/view?usp=sharing) and put them into `XDA_repo/data-bin`.
@@ -216,9 +220,9 @@ Please refer this [step](https://github.com/junxzm1990/x86-sok/tree/master/artif
 
 The result of `Manual` in Table 4 is direct from paper [Binary Code is Not Easy](http://www.paradyn.org/papers/Meng15Parsing.pdf) Table 3.
 
-The result of `Oracle` in `Tail Call` column is direct paper [sok](https://arxiv.org/pdf/2007.14266.pdf) Table XIII.
+The result of `Oracle` in `Tail Call` column 5(Column 5, Row 3 and Column 5, Row 5) is direct paper [sok](https://arxiv.org/pdf/2007.14266.pdf) Table XIII.
 
-To reproduce the result of `Oracle` in `Embeded`(Column 3, Row 3 and Column 5, Row 3):
+To reproduce the result of `Oracle` in `Embeded`(Column 3, Row 3 and Column 3, Row 5):
 
 ```console
 # compare dyninst with oracle on embeded instructions
@@ -231,7 +235,7 @@ popd
 ```
 As we have `Precision` and `Recall`, F1-Score is calculated by `2*Precision*Recall/(Precision + Recall)`
 
-To reproduce the result of `Oracle` in `JMPTBL`:
+To reproduce the result of `Oracle` in `JMPTBL`(Column 4, Row 3 and Column 4 and Row 5):
 
 ```console
 # compare dyninst with oracle on jump tables
@@ -493,10 +497,16 @@ root@32380fe55c2a:/opt/shared/coreutils-8.30/build_gcc_O2# make -j && make insta
 
 ### Extract ground truth
 
+Start a `py_gt` docker, suppose we are in the `artifact_eval` folder.
+
 ```console
-## outside docker. suppose we are currently in `artifact_eval` directory, and the built binaries is in `./coreutils-8.30/build_gcc_O2/bin`
+docker run -it --rm -v $PWD/../:/opt/shared bin2415/py_gt /bin/bash
+```
+
+```console
+## insider py_gt docker. suppose we are currently in `/opt/shared/artifact_eval` directory, and the built binaries is in `./coreutils-8.30/build_gcc_O2/bin`
 ## we want to extract ground truth of `./coreutils-8.30/build_gcc_O2/bin`
-bash ../script/run_extract_linux.sh -d ./build_gcc_O2/bin/ls -s ../extract_gt/extractBB.py
+/opt/shared/artifact_eval: bash ../script/run_extract_linux.sh -d ./coreutils-8.30/build_gcc_O2/bin/ls -s ../extract_gt/extractBB.py
 
 ## the extracted ground truth is `./coreutils-8.30/build_gcc_O2/bin/gtBlock_ls.pb`
 ```
@@ -506,9 +516,7 @@ bash ../script/run_extract_linux.sh -d ./build_gcc_O2/bin/ls -s ../extract_gt/ex
 Here, we compare radare with our ground truth. The steps of extracting disassembly result of radare2 are shown as following:
 
 ```console
-# install radare
-sudo apt install radare2
-pip3 install r2pipe
+# inside py_gt docker:
 
 # strip targeted binary: ls
 cp ./coreutils-8.30/build_gcc_O2/bin/ls ./coreutils-8.30/build_gcc_O2/bin/ls.strip && strip ./coreutils-8.30/build_gcc_O2/bin/ls.strip
@@ -519,7 +527,7 @@ python3 ../disassemblers/radare/radareBB.py -b ./coreutils-8.30/build_gcc_O2/bin
 #### Compare instruction
 
 ```console
-python3 ../compare/compareInstsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockRadare_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+python3 ../compare/compareInstsArmMips.py -b ./coreutils-8.30/build_gcc_O2/bin/ls -c ./coreutils-8.30/build_gcc_O2/bin/BlockRadare_ls.pb -g ./coreutils-8.30/build_gcc_O2/bin/gtBlock_ls.pb
 
 # the result is shown:
 ...
@@ -534,7 +542,7 @@ python3 ../compare/compareInstsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gc
 #### Compare Function
 
 ```console
-python3 ../compare/compareFuncsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockRadare_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+python3 ../compare/compareFuncsArmMips.py -b ./coreutils-8.30/build_gcc_O2/bin/ls -c ./coreutils-8.30/build_gcc_O2/bin/BlockRadare_ls.pb -g ./coreutils-8.30/build_gcc_O2/bin/gtBlock_ls.pb
 
 # the result is shown:
 ...
@@ -549,7 +557,7 @@ python3 ../compare/compareFuncsArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gc
 #### Compare Jump Table
 
 ```console
-python3 ../compare/compareJmpTableArmMips.py -b ./build_gcc_O2/bin/ls -c ./build_gcc_O2/bin/BlockRadare_ls.pb -g ./build_gcc_O2/bin/gtBlock_ls.pb
+python3 ../compare/compareJmpTableArmMips.py -b ./coreutils-8.30/build_gcc_O2/bin/ls -c ./coreutils-8.30/build_gcc_O2/bin/BlockRadare_ls.pb -g ./coreutils-8.30/build_gcc_O2/bin/gtBlock_ls.pb
 
 # the result is shown:
 ...
