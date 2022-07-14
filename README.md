@@ -298,6 +298,7 @@ INFO:[Summary]: overlapping functions is 0
 INFO:[Summary]: tail call count is is 1
 
 # extract x-ref result, the result is saved in /tmp/gtRef_test_switch.pb
+# Only support x86/x64 binary
 root@5e8606df7f20:/gt_x86/test# python3 ../../extract_gt/extractXref.py -b test_switch -m test_switch.gt -o /tmp/gtRef_test_switch.pb
 ```
 
@@ -307,6 +308,7 @@ We provide script to extract ground truth in batch. It searchs all the binaries 
 
 ```console
 ubuntu@ubuntu:/x86-sok/extract_gt: bash run_extract_linux.sh -d <directory> -s ./extractBB.py -p gtBlock
+# only support x86/x64 binary
 ubuntu@ubuntu:/x86-sok/extract_gt: bash run_extract_linux.sh -d <directory> -s ./extractXref.py -p gtRef
 ```
 

@@ -1,13 +1,14 @@
 from deps import *
 import optparse
 import constants as C
-import reconstructInfo 
+import reconstructInfo
 import logging
 
 import sys
 import os
 import refInf_pb2
 from reorderInfo import *
+import bbinfoconfig as bbl
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
@@ -104,6 +105,16 @@ if __name__ == '__main__':
         print('Please input the elf file')
         exit(-1)
 
+    ELF_CLASS = readElfClass(options.binary)
+    ELF_ARCH = readElfArch(options.binary)
+    ELF_LITTLE_ENDIAN = readElfEndian(options.binary)
+
+    if ELF_ARCH not in {"x86", "x64"}:
+        logging.error("Only supports x86 and x64!")
+        exit(-1)
+
+    bbl.init(ELF_ARCH, ELF_CLASS, ELF_LITTLE_ENDIAN)
+
     shuffleInfoBin = None
     if options.metadata == None:
         shuffleInfoBin = options.binary + C.METADATA_POSTFIX
@@ -111,6 +122,7 @@ if __name__ == '__main__':
         shuffleInfoBin = options.metadata
 
     rData = None
+
     if os.path.exists(shuffleInfoBin):
         rData = reconstructInfo.read(shuffleInfoBin, False, options.binary)
     elif os.path.exists(C.METADATA_PATH):
