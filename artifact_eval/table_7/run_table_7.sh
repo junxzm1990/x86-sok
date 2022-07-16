@@ -29,6 +29,8 @@ bash ${script_path} -d ${binary_path} -p BlockRadareNew -s ${compare_path}/compa
 bash ${script_path} -d ${binary_path} -p BlockIda -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/mips/ida &
 bash ${script_path} -d ${binary_path} -p BlockNinja -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/mips/ninja
 
+wait
+
 # ARM32
 
 binary_path=${base}/testsuite/arm32_executables
@@ -51,6 +53,8 @@ bash ${script_path} -d ${binary_path} -p BlockAngr -s ${compare_path}/compareJmp
 bash ${script_path} -d ${binary_path} -p BlockRadare -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/arm32/radare &
 bash ${script_path} -d ${binary_path} -p BlockIda -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/arm32/ida &
 bash ${script_path} -d ${binary_path} -p BlockNinja -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/arm32/ninja
+
+wait
 
 # THUMB
 
@@ -75,6 +79,8 @@ bash ${script_path} -d ${binary_path} -p BlockRadare -s ${compare_path}/compareJ
 bash ${script_path} -d ${binary_path} -p BlockIda -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/mthumb/ida &
 bash ${script_path} -d ${binary_path} -p BlockNinja -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/mthumb/ninja &
 
+wait
+
 # AARCH64
 
 binary_path=${base}/testsuite/aarch64_executables
@@ -97,6 +103,8 @@ bash ${script_path} -d ${binary_path} -p BlockAngr -s ${compare_path}/compareJmp
 bash ${script_path} -d ${binary_path} -p BlockRadare -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/aarch64/radare &
 bash ${script_path} -d ${binary_path} -p BlockIda -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/aarch64/ida &
 bash ${script_path} -d ${binary_path} -p BlockNinja -s ${compare_path}/compareJmpTableArmMips.py -o ${output_path}/jmptbl/aarch64/ninja
+
+wait
 
 find ${output_path} -iname "*.log" | sort | xargs ${base}/collect_res > ${base}/res.log
 cat ${base}/res.log
