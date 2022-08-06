@@ -267,7 +267,7 @@ Here are examples that explain how to use our x86/x64 toolchain to compile binar
   basename   chown   csplit   dir    env         fmt      id       ln        mkfifo    nl       paste    printf     rm         sha224sum   shuf        stdbuf   tail   tr        uname      users      yes
   ```
 
-## Exatract Ground truth from binary
+## Extract Ground truth from binary
 
 ### Linux
 

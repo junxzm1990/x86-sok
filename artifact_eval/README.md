@@ -34,7 +34,7 @@ pip3 install protobuf \
 docker pull bin2415/py_gt
 ```
 
-## Byteweight(~40mins)
+## ByteWeight(~40mins)
 
 ### Reproduction of trained model
 
@@ -43,7 +43,7 @@ docker pull bin2415/py_gt
 
 We prepared a vm image of Virtualbox. The trained model is in the vm. The steps to reproduce is:
 
-- Download the byteweight image: [image](https://drive.google.com/file/d/1Cv4Yf8f2_eXOvMtxFg00l3DGXD2jaLPb/view?usp=sharing).
+- Download the ByteWeight image: [image](https://drive.google.com/file/d/1Cv4Yf8f2_eXOvMtxFg00l3DGXD2jaLPb/view?usp=sharing).
 
 - Import the image in Virtualbox.
 
@@ -53,7 +53,7 @@ We prepared a vm image of Virtualbox. The trained model is in the vm. The steps 
 sudo mount /dev/sdb /work
 ```
 
-- Test the model of byteweight:
+- Test the model of ByteWeight:
 
 ```
 cd ~/ByteWeight/code/script
