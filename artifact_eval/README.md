@@ -1,4 +1,4 @@
-We provide large-scale dataset built by our toolchains for x86/x64, arm32/mthumb/aarch64 and mips32/mips64. To reproduce the result in our Usenix paper easily, we also provide corresponding scripts.
+We provide a large-scale dataset built by our toolchains for x86/x64, arm32/mthumb/aarch64 and mips32/mips64. To reproduce the result in our Usenix paper easily, we also provide corresponding scripts.
 
 ## Download datasets
  - [x86 dataset](https://zenodo.org/record/6566082/files/x86_dataset.tar.xz?download=1). Decompressed size is ~56GB.

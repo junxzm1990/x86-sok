@@ -35,7 +35,7 @@ We shared dataset of x86/arm/mips compiled by gcc-8.1.0 and clang-6.0 and disass
 ## The Framework of compilers
 
 We modified compilers(gcc/clang) to collect the information of basic blocks and reconstruct the information of binary code.
-And we want to extract executable file's basic block, jump table, fixup/reference and function information in compilation tool and can help to evaluate disassemblers.
+And we want to extract the executable file's basic block, jump table, fixup/reference, and function information in the compilation tool and can help to evaluate disassemblers.
 
 For clang, we re-use the implemenation of [CCR](https://github.com/kevinkoo001/CCR).
 
@@ -50,7 +50,7 @@ For clang, we re-use the implemenation of [CCR](https://github.com/kevinkoo001/C
 
 ```
 
-For gcc, we modifed gcc and gas(GNU assembler).
+For gcc, we modified gcc and gas(GNU assembler).
 Modifications can be found at [gcc modification](https://github.com/junxzm1990/x86-sok/blob/master/gt/gcc/gcc-8.1.0/patch_f4eef700) and [gas modification](https://github.com/junxzm1990/x86-sok/blob/master/gt/binutils/patch_as_2_30).
 
 
@@ -65,9 +65,9 @@ Modifications can be found at [gcc modification](https://github.com/junxzm1990/x
 
 ```
 
-There exist some differences between llvm toolchains(based on ccr) and gcc toolchains. In llvm, it has [MC componment](http://blog.llvm.org/2010/04/intro-to-llvm-mc-project.html) that combines `compilation` and `assembling` together internally. While gcc outputs the .s file after compilation, and invoke `assembler(gas)` to assemble the .s file into object. So it is easier to extract the basic block and jump table information in compilation and store this information in object file after assembling in llvm toolchains when comparing to gcc toolchains.
+There exist some differences between llvm toolchains(based on CCR) and gcc toolchains. In llvm, it has [MC componment](http://blog.llvm.org/2010/04/intro-to-llvm-mc-project.html) that combines `compilation` and `assembling` together internally. While gcc outputs the .s file after compilation, and invokes `assembler(gas)` to assemble the .s file into an object. So it is easier to extract the basic block and jump table information in compilation and store this information in an object file after assembling in llvm toolchains when compared to gcc toolchains.
 
-As basic block, function, and jump table information can only be collected in compilation stage, so firstly, we output the related information into .s file, and then we reconstruct these information in assembler(gas).
+As basic block, function, and jump table information can only be collected in the compilation stage, so firstly, we output the related information into .s file, and then we reconstruct these information in assembler(gas).
 
 
 ## Build && Use the Compilers
@@ -77,7 +77,7 @@ We provide two ways to build the toolchains of compilers in x86/x64: ubuntu18.04
 
 #### Ubuntu 18.04
 
-If you are using Ubuntu 18.04, we recommend you to build the toolchain in your computer:
+<!-- If you are using Ubuntu 18.04, we recommend you build the toolchain on your computer: -->
 
 ```console
 $ git clone git@github.com:junxzm1990/x86-sok.git
@@ -85,14 +85,14 @@ $ cd x86-sok/gt
 $ bash x86/build.sh
 ```
 
-The gcc/g++ are installed in `gt/build/executable_gcc/bin`, clang/clang++ are installed in `gt/build/build_clang/bin`. We also build glibc by using our toolchain so that the compiled glibc contains the information emitted by compiler. Glibc is installed in `gt/build/glibc_build_32` or `gt/build/glibc_build_64`.
+The gcc/g++ are installed in `gt/build/executable_gcc/bin`, clang/clang++ are installed in `gt/build/build_clang/bin`. We also build glibc by using our toolchain so that the compiled glibc contains the information emitted by the compiler. Glibc is installed in `gt/build/glibc_build_32` or `gt/build/glibc_build_64`.
 
 For convenience, we provide config scripts to set `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`, `LDFLAGS`. These configs are `gt/gcc64.rc`, `gt/gcc32.rc`, `gt/clang64.rc` and `gt/clang32.rc`.
 
-Before compiling, we can  set proper configures by:
+Before compiling, we can set proper configure by:
 
 ```console
-# for example, we want to compile the source code by gcc
+# for example, to compile the source code by gcc
 $ source gcc64.rc
 
 # set the proper optimization level
@@ -102,7 +102,7 @@ $ export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $CXXFLAGS"
 
 #### Docker
 
-If you prefer to use Docker, we also provides script to build docker image.
+If you prefer to use Docker, we also provide the script to build docker image.
 
 ```console
 # install docker firstly
@@ -147,7 +147,7 @@ root@fc44258775ac:/gt_x86# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 $
 
 ### ARM
 
-We cross compiled arm32 and aarch64 binaries in x86/x64 architecture. We need to install qemu:
+We cross-compiled arm32 and aarch64 binaries in x86/x64 architecture. We need to install `qemu`:
 
 ```console
 sudo apt-get install qemu binfmt-support qemu-user-static
@@ -190,7 +190,7 @@ root@5e9ee548ff5d:/gt_aarch64# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-
 
 ### Mips
 
-We cross compiled mips binaries in x86/x64 architecture. We need to install qemu:
+We cross-compiled mips binaries in x86/x64 architecture. We need to install qemu:
 
 #### mipsle 32
 
@@ -226,7 +226,7 @@ root@76ca6fcc9f1d:/gt_mips# export CFLAGS="-O2 $CFLAGS" && export CXXFLAGS="-O2 
 
 #### Compile binary with our toolchain
 
-Here are examples that explain how to use our x86/x64 toolchain to compile binary(arm and mips toolchains are same with x86/x64).
+Here are examples that explain how to use our x86/x64 toolchain to compile binary(arm and mips toolchains are the same with x86/x64).
 
 - Example 1: a simple c code
 
@@ -366,7 +366,7 @@ ubuntu@ubuntu:/x86_sok/compare# python3 compareNonRet.py -b <binary path> -g <gr
 
 ## Porting to New Compilers
 
-OracleGT supports two open-source compilers(gcc, llvm/clang) to collect the ground truth of binary disassembly(i.e., instruction recovery, function entry detection and jump table reconstruction) when compiling. Here we dissect every part insider compiler, assembler, and linker to illustrate how to port new compilers.
+OracleGT supports two open-source compilers(gcc, llvm/clang) to collect the ground truth of binary disassembly(i.e., instruction recovery, function entry detection, and jump table reconstruction) when compiling. Here we dissect every part insider compiler, assembler, and linker to illustrate how to port new compilers.
 
 ### Porting to LLVM/Clang
 
@@ -403,19 +403,19 @@ class MCAsmInfo {
 }
 ```
 
-`MachineBasicBlocks` is a `map`, the key is the uniqe identifier of every basic block and the value is a pair of informations:
-- size of basic block
+`MachineBasicBlocks` is a `map`, the key is the unique identifier of every basic block and the value is a pair of information:
+- the size of basic block
 - offset of basic block inside section of `Object`
 - the number of fixups
-- type of basic block: is the current basic block is the boundary of function or if the basic block has special mode(such as thumb mode)
+- the type of basic block: is the current basic block is the boundary of function or if the basic block has special mode(such as thumb mode)
 - section name
-- type of assembly codes
+- the type of assembly codes
 
-Next, we are going to introduce how to collect those informations at the backend of LLVM.
+Next, we are going to introduce how to collect those information at the backend of LLVM.
 
 #### Recording the information of basic block
 
-In order to record the size of basic block and the offset inside fragment, we trace the process of assembling `MCInst` into `bytes`. Specifically, `MCELFStreamer` is the basic class that assemble
+To record the size of the basic block and the offset inside the fragment, we trace the process of assembling `MCInst` into `bytes`. Specifically, `MCELFStreamer` is the basic class that assemble
 `MCInst` into `MCFragment`.
 
 ```c++
@@ -463,7 +463,7 @@ bool MCAssembler::relaxInstruction(MCAsmLayout &Layout,
 }
 ```
 
-To update the offset of basic block inside final `object`, we hook the process of organizing fragments into object by operating `MCAsmLayout`:
+To update the offset of the basic block inside the final `object`, we hook the process of organizing fragments into an object by operating `MCAsmLayout`:
 
 ```c++
 void updateReorderInfoValues(const MCAsmLayout &Layout) {
@@ -565,7 +565,7 @@ Void Layout(layout)
 
 ### Porting to GCC
 
-In order to pass information from `GCC` compiler to `GNU Assembler`, The tool defines some `directives`[1] to mark basic block information, function information, inline information and jump table information
+In order to pass information from `GCC` compiler to `GNU Assembler`, The tool defines some `directives`[1] to mark basic block information, function information, inline information, and jump table information
 
 | Label          | Information                           |
 | -------------- | ------------------------------------- |
@@ -711,7 +711,7 @@ edge_fall_through(edge e){
 
 > Recommendation: Assembler is not related to compiler optimizations, we could leave the `GAS` as it is until it is not fit in new GCC compilers.
 
-The process of assembling could be deemed as a state machine: when processing `directive`, it defines current state and triger the specific action to handle following sequence bytes. So we could add specific `directives` to pass information from compiler to assembler and represent the specific state inside assembler.
+The process of assembling could be deemed as a state machine: when processing `directive`, it defines the current state and trigger the specific action to handle the following sequence bytes. So we could add specific `directives` to pass information from compiler to assembler and represent the specific state inside the assembler.
 
 Specifically, in order to migrate to new gas, we could do following modifications:
 
@@ -730,7 +730,7 @@ const pseudo_typeS bbInfo_pseudo_table[] = {
 };
 ```
 
-The modified `GCC` emits corresponding `directives` to pass the boundary of function, basic block and the information of jump tables. At the assembler side, we could reconstruct these information when handling specific directive. In order to represent these informaton, we could use following structures:
+The modified `GCC` emits corresponding `directives` to pass the boundary of function, basic block, and the information of jump tables. On the assembler side, we could reconstruct this information when handling specific directives. In order to represent the information, we could use the following structures:
 
 ```c
 // basic block related information
@@ -759,12 +759,12 @@ struct basic_block{
 The tool uses `basic_block` to represent the basic unit that contains continuous instructions. When met `bbinfo_bb`, the tool initializes a new `basic_block`:
 
 - Update the `fall_through` field according to the value obtained by `bbinfo_bb` directive.
-- `Fragment` is the basic unit inside assembler, it represents continuous fixed regions. The tool associates `basic_block` with fragment when initializing and update the offset inside current fragment.
+- `Fragment` is the basic unit inside the assembler, it represents continuous fixed regions. The tool associates `basic_block` with fragment when initializing and updating the offset inside the current fragment.
 - Update `sec` field which represents which section it belongs to.
 
 #### Record Instructions
 
-The tool hooks the process of emitting instructions into fragment, and record every instruction in current `basic_block`. In `gas/config` directory, it defines architecture related functions to emit insturctions into fragment. For example, for `AArch64`, `gas/config/tc-aarch64.c::output_inst(struct aarch64_inst *new_inst)` function do that work.
+The tool hooks the process of emitting instructions into fragment, and record every instruction in the current `basic_block`. In `gas/config` directory, it defines architecture-related functions to emit instructions into the fragment. For example, for `AArch64`, `gas/config/tc-aarch64.c::output_inst(struct aarch64_inst *new_inst)` function do that work.
 
 ```c
 // in gas/config/tc-aarch64.c
@@ -849,7 +849,7 @@ Layout::finalize(const Input_objects* input_objects, Symbol_table* symtab,
 
 In `update_shuffleInfo_layout()`, the tool iterates every basic block and update its offsets inside executable file.
 
-Finally, the tool hooks the process of generating sections and add section `.gt` to store ground truth of binary disassembly.
+Finally, the tool hooks the process of generating sections and adds section `.gt` to store the ground truth of binary disassembly.
 
 ```c++
 // in gold/main.cc
