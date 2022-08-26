@@ -40,9 +40,8 @@ echo
 
 if [ ! -f ${PWD_PATH}/succeed/protobuf ]; then
     cd $PWD_PATH
-    eval "sudo apt-get -y install autoconf automake libtool curl make g++ unzip pkg-config"
     eval "git clone https://github.com/protocolbuffers/protobuf.git"
-    eval "cd protobuf && git submodule update --init --recursive && ./autogen.sh"
+    eval "cd protobuf && git checkout v3.15.8 && git submodule update --init --recursive && ./autogen.sh"
     eval "./configure && make -j$(nproc) &&  sudo make install && sudo ldconfig"
     echo "done" > ${PWD_PATH}/succeed/protobuf
 fi
@@ -59,7 +58,7 @@ cd $PWD_PATH
 if [ ! -f ${PWD_PATH}/succeed/protobuf-c ]; then
     echo "git clone https://github.com/protobuf-c/protobuf-c.git"
     eval "git clone https://github.com/protobuf-c/protobuf-c.git"
-    eval 'cd protobuf-c && ./autogen.sh && ./configure && make -j$(nproc) && sudo  make install'
+    eval 'cd protobuf-c && git checkout v1.4.0 && ./autogen.sh && ./configure && make -j$(nproc) && sudo  make install'
     eval 'sudo ln -sf /usr/local/lib/libprotobuf-c.so.1.0.0 /usr/lib/libprotobuf-c.so.1'
     echo "done" > ${PWD_PATH}/succeed/protobuf-c
 fi
@@ -73,7 +72,7 @@ cd $PWD_PATH
 echo
 echo -e "${BLUE}===================== build shuffleInfo.so ======================${NC}"
 echo
-PROTODEF_DIR="$PWD_PATH/../proto"
+PROTODEF_DIR="$PWD_PATH/../../proto"
 PROTO="shuffleInfo.proto"
 SHUFFLEINFO="shuffleInfo.so"
 CC_HDR="shuffleInfo.pb.h"
@@ -148,10 +147,9 @@ GCC_PATH="$PWD_PATH/gcc-8.1.0"
 GCC_BUILD_PATH="$PWD_PATH/build_gcc"
 GCC_EXE_PATH="$PWD_PATH/executable_gcc"
 
+
 # soft link gas
 eval " sudo cp /usr/bin/as /usr/bin/as.old"
-eval " sudo ln -sf $GAS_PATH /usr/bin/as"
-
 echo
 echo -e "${BLUE}======================= build gcc ===============================${NC}"
 echo
@@ -176,13 +174,17 @@ if [ ! -f ${PWD_PATH}/succeed/gcc ]; then
            --enable-multilib                                 \
         --disable-libmpx \
         --with-system-zlib                                 \
+	--disable-lto \
+	--disable-checking \
+	--disable-bootstrap \
         --program-suffix=-8.1 \
-        --enable-languages=c,c++,fortran,go && make -j$(nproc)"
+	--enable-languages=c,c++,fortran && make -j$(nproc)"
 
     eval $BUILD_GCC
 
     rm -r "${GCC_PATH}/gcc"
     cp -r "${SRC_PATH}/gcc/gcc-8.1.0/gcc" ${GCC_PATH}/gcc
+    eval " sudo ln -sf $GAS_PATH /usr/bin/as"
 
       # gcc
     eval "cd $GCC_BUILD_PATH && make -j$(nproc) &&   make install"
