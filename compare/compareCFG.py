@@ -9,6 +9,7 @@ from deps import *
 import optparse
 import logging
 import cxxfilt
+import bbinfoconfig as bbl
 import blocks_pb2
 from elftools.elf.elffile import ELFFile
 from BlockUtil import *
@@ -455,6 +456,9 @@ if __name__ == '__main__':
     readTextSection(options.binaryFile)
 
     ELFCLASS = readElfClass(options.binaryFile)
+    elfarch = readElfArch(options.binaryFile)
+    elfendian = readElfEndian(options.binaryFile)
+    bbl.init(elfarch, ELFCLASS, elfendian)
 
     mModule1 = blocks_pb2.module()
     mModule2 = blocks_pb2.module()
