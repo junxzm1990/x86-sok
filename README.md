@@ -251,7 +251,7 @@ Here are examples that explain how to use our x86/x64 toolchain to compile binar
 - Example 2: compile coreutils
   ```console
   # download coreutils
-  root@1a16bbde2f79:/gt_x86/test# wget -c https://mirror.powerfly.ca/gnu/coreutils/coreutils-8.30.tar.xz
+  root@1a16bbde2f79:/gt_x86/test# wget -c https://ftp.gnu.org/gnu/coreutils/coreutils-8.30.tar.xz
   root@1a16bbde2f79:/gt_x86/test# tar -xvf coreutils-8.30.tar.xz && cd coreutils-8.30
   root@1a16bbde2f79:/gt_x86/test/coreutils-8.30# mkdir build_gcc_O2 && cd build_gcc_O2
   root@1a16bbde2f79:/gt_x86/test/coreutils-8.30/build_gcc_O2# source /gt_x86/gcc64.rc && export CFLAGS="-O2 $CFLAGS"
