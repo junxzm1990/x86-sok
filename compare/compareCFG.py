@@ -221,7 +221,7 @@ def readComparedCFG(mModule, binary, jtable_jumps):
         funcAddr = func.va
 
         if PIE:
-            funcAddr = func - disassembler_base_addr
+            funcAddr = funcAddr - disassembler_base_addr
 
         if funcAddr not in tmpFuncSet:
             tmpFuncSet.add(funcAddr)
