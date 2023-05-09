@@ -889,16 +889,16 @@ MIT License.
 If your research find one or several components of this work useful, please cite the following paper:
 
 @INPROCEEDINGS{sok-x86,\
-	author = {Chengbin Pang and Ruotong Yu and Yaohui Chen and Eric Koskinen and Georgios Portokalidis and Bing Mao and Jun Xu},\
-	booktitle = {42nd IEEE Symposium on Security and Privacy (SP)},\
-	title = {SoK: All You Ever Wanted to Know About x86/x64 Binary Disassembly But Were Afraid to Ask},\
-	year = {2021}
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;author = {Chengbin Pang and Ruotong Yu and Yaohui Chen and Eric Koskinen and Georgios Portokalidis and Bing Mao and Jun Xu},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;booktitle = {42nd IEEE Symposium on Security and Privacy (SP)},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;title = {SoK: All You Ever Wanted to Know About x86/x64 Binary Disassembly But Were Afraid to Ask},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year = {2021}\
 }
 
 @INPROCEEDINGS{pang2022ground,\
-	title={Ground Truth for Binary Disassembly is Not Easy},\
-	author={Pang, Chengbin and Zhang, Tiantai and Yu, Ruotong and Mao, Bing and Xu, Jun},\
-	booktitle={31st USENIX Security Symposium (USENIX Security 22)},\
-	pages={2479--2495},\
-	year={2022}\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;title={Ground Truth for Binary Disassembly is Not Easy},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;author={Pang, Chengbin and Zhang, Tiantai and Yu, Ruotong and Mao, Bing and Xu, Jun},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;booktitle={31st USENIX Security Symposium (USENIX Security 22)},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pages={2479--2495},\
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;year={2022}\
 }
