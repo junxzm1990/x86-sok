@@ -18,5 +18,5 @@ python3 -m pip install requirements.txt
 ## Usage
 
 ```
-PYTHONPATH=../../protobuf_def python3 ddisasmBBnRef.py -i [input-binary] -o [output-path]
+PYTHONPATH=../../protobuf_def python3 ddisasmBBnRef.py -i [input-binary or gtirb-ir-file] -o [output-path]
 ```

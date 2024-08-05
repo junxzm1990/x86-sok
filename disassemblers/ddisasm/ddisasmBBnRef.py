@@ -254,7 +254,7 @@ if __name__ == "__main__":
         action="store",
         type="string",
         help="output of the protobuf file",
-        default="/tmp/ddisasm_block.pb2"
+        default=None
     )
     (options, args) = parser.parse_args()
 
@@ -262,13 +262,17 @@ if __name__ == "__main__":
         print("Please provide an input binary or gtirb-IR file")
         exit(-1)
 
+    if options.output is not None:
+        pb_output = Path(options.output)
+    else:
+        pb_output = Path("/tmp") / f"{Path(options.input).name}.ddisasm.pb"
+
     file_type = get_magic_file_type(options.input)
 
     if file_type == FileType.ELF or file_type == FileType.PE:
         logging.info("Run ddisasm on %s", options.input)
         start = time.monotonic()
-        assert options.output is not None
-        ir_path = Path(options.output).with_suffix(".gtirb")
+        ir_path = Path(pb_output).with_suffix(".gtirb")
         disassemble(Path(options.input), ir_path)
         logging.info("Done with ddisasm.")
         end = time.monotonic()
@@ -291,11 +295,11 @@ if __name__ == "__main__":
 
     if mode == ExtractMode.BB:
         logging.info("Dump blocks...")
-        dumpBlocks(ir, options.output)
+        dumpBlocks(ir, pb_output)
         logging.info("Done dumping blocks.")
     elif mode == ExtractMode.REF:
         logging.info("Dump refs...")
-        dumpRefs(ir, options.output)
+        dumpRefs(ir, pb_output)
         logging.info("Done dumping refs.")
 
     logging.info("All done.")
