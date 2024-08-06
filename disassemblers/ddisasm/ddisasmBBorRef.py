@@ -79,15 +79,16 @@ def addBB(
             )
 
 
-def dumpBlocks(ir: gtirb.IR, output: str) -> None:
+def dumpBlocks(ir: gtirb.IR, output: Path) -> None:
     """
-    Create pb blocks for the given IR and dump the results to the given output
-    path as string.
+    Create pb blocks for the given IR and dump the results to the given
+    output path.
     """
     for m in ir.modules:
         logging.info("Module %s", m.name)
         decoder = GtirbInstructionDecoder(m.isa)
 
+        bb_set = set()
         module = blocks_pb2.module()
         for function, func_name in m.aux_data["functionNames"].data.items():
             entries = m.aux_data.get("functionEntries").data[function]
@@ -101,6 +102,19 @@ def dumpBlocks(ir: gtirb.IR, output: str) -> None:
 
             for block in m.aux_data["functionBlocks"].data[function]:
                 addBB(block, pbFunc, decoder)
+                bb_set.add(block)
+
+        # Add the rest of blocks that do not belong to any function
+        dummyFunc = module.fuc.add()
+        dummyFunc.va = 0x0
+        for block in m.code_blocks:
+            if block in bb_set:
+                continue
+            addBB(block, dummyFunc, decoder)
+            bb_set.add(block)
+
+        if len(ir.modules) > 1:
+            output = output.with_suffix(f"{m.name}.pb")
 
         logging.info("Writing output to %s", output)
         with open(output, "wb") as f:
@@ -123,7 +137,10 @@ def ref_size(module: gtirb.Module) -> int:
         assert "Unsupported ISA"
 
 
-def dumpRefs(ir: gtirb.IR, output: str) -> None:
+def dumpRefs(ir: gtirb.IR, output: Path) -> None:
+    """
+    Collect symbol references and dump the results to the given output path.
+    """
 
     refInf = refInf_pb2.RefList()
 
