@@ -114,7 +114,8 @@ def dumpBlocks(ir: gtirb.IR, output: Path) -> None:
             bb_set.add(block)
 
         if len(ir.modules) > 1:
-            output = output.with_suffix(f"{m.name}.pb")
+            new_filename = f"{output.stem}-{m.name}{output.suffix}"
+            output = output.with_name(new_filename)
 
         logging.info("Writing output to %s", output)
         with open(output, "wb") as f:
@@ -185,22 +186,25 @@ def dumpRefs(ir: gtirb.IR, output: Path) -> None:
                 from_addr = bi.address + offset
 
                 for symbol in sym_expr.symbols:
-                    if symbol._payload is None:
+                    tblock = symbol.referent
+                    if tblock is None:
                         continue
 
-                    if isinstance(symbol._payload, gtirb.Block):
-                        tblock = symbol._payload
-                        if isinstance(tblock, gtirb.ProxyBlock):
-                            # This is an external reference which is not
-                            # captured here.
-                            continue
+                    if isinstance(tblock, gtirb.ProxyBlock):
+                        # This is an external reference which is not
+                        # captured here.
+                        #
+                        # TODO: Skipping this results in missing references to
+                        # external symbols.
+                        # However, the ground truth includes such references
+                        # associated with their mapped addresses.
+                        logging.debug(
+                            "0x%x: %s skipped", from_addr, symbol.name
+                        )
+                        continue
 
-                        to_addr = tblock.address
-                        kind = ref_kind(block, tblock).value
-
-                    else:  # int
-                        to_addr = symbol._payload
-                        kind = 0  # TODO
+                    to_addr = tblock.address
+                    kind = ref_kind(block, tblock).value
 
                     ref = refInf.ref.add()
                     update_ref(m, ref, from_addr, to_addr, kind)
@@ -210,9 +214,13 @@ def dumpRefs(ir: gtirb.IR, output: Path) -> None:
                         % (kind, ref.ref_va, ref.target_va)
                     )
 
-    logging.info("Collect Refs done! ready to write output...")
-    with open(output, "wb") as f:
-        f.write(refInf.SerializeToString())
+        if len(ir.modules) > 1:
+            new_filename = f"{output.stem}-{m.name}{output.suffix}"
+            output = output.with_name(new_filename)
+
+        logging.info("Collect Refs done! ready to write output...")
+        with open(output, "wb") as f:
+            f.write(refInf.SerializeToString())
 
 
 class FileType(Enum):
@@ -303,10 +311,10 @@ if __name__ == "__main__":
     if mode == ExtractMode.BB:
         logging.info("Dump blocks...")
         dumpBlocks(ir, args.output)
-        logging.info("Done dumping blocks.")
+        logging.info("Done dumping blocks to %s", args.output)
     elif mode == ExtractMode.REF:
         logging.info("Dump refs...")
         dumpRefs(ir, args.output)
-        logging.info("Done dumping refs.")
+        logging.info("Done dumping refs to %s", args.output)
 
     logging.info("All done.")
