@@ -2,3 +2,4 @@ gtirb
 ddisasm
 capstone-gt
 gtirb_capstone
+lief

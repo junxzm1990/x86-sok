@@ -9,6 +9,7 @@ import blocks_pb2
 import refInf_pb2
 import gtirb
 from gtirb_capstone.instructions import GtirbInstructionDecoder
+import lief
 
 logging.basicConfig(level=logging.INFO)
 
@@ -120,6 +121,7 @@ def dumpBlocks(ir: gtirb.IR, output: Path) -> None:
         logging.info("Writing output to %s", output)
         with open(output, "wb") as f:
             f.write(module.SerializeToString())
+        logging.info("Done writing blocks to %s", output)
 
 
 def ref_size(module: gtirb.Module) -> int:
@@ -138,7 +140,7 @@ def ref_size(module: gtirb.Module) -> int:
         assert "Unsupported ISA"
 
 
-def dumpRefs(ir: gtirb.IR, output: Path) -> None:
+def dumpRefs(input: Path, ir: gtirb.IR, output: Path) -> None:
     """
     Collect symbol references and dump the results to the given output path.
     """
@@ -177,6 +179,28 @@ def dumpRefs(ir: gtirb.IR, output: Path) -> None:
         else:
             assert False
 
+    def ref_kind_w_symtype(from_block, sym_type) -> int:
+        if isinstance(from_block, gtirb.CodeBlock):
+            if sym_type == lief._lief.ELF.SYMBOL_TYPES.FUNC:
+                return RefKind.C2C
+            else:
+                return RefKind.C2D
+        elif isinstance(from_block, gtirb.DataBlock):
+            if sym_type == lief._lief.ELF.SYMBOL_TYPES.FUNC:
+                return RefKind.D2C
+            else:
+                return RefKind.D2D
+
+    symbols = {}
+    file_type = get_magic_file_type(input)
+    if file_type == FileType.ELF:
+        binlief = lief.parse(str(input))
+        symbols = {
+            sym.name: (sym.value, sym.type)
+            for sym in binlief.symbols
+            if sym.name and sym.value
+        }
+
     for m in ir.modules:
         for block in m.byte_blocks:
             sym_exprs = block.byte_interval.symbolic_expressions_at(
@@ -191,20 +215,21 @@ def dumpRefs(ir: gtirb.IR, output: Path) -> None:
                         continue
 
                     if isinstance(tblock, gtirb.ProxyBlock):
-                        # This is an external reference which is not
-                        # captured here.
-                        #
-                        # TODO: Skipping this results in missing references to
-                        # external symbols.
-                        # However, the ground truth includes such references
-                        # associated with their mapped addresses.
-                        logging.debug(
-                            "0x%x: %s skipped", from_addr, symbol.name
-                        )
-                        continue
-
-                    to_addr = tblock.address
-                    kind = ref_kind(block, tblock).value
+                        # The ground truth includes external reference
+                        # with the symbol address.
+                        if symbol.name in symbols:
+                            to_addr, type = symbols[symbol.name]
+                            kind = ref_kind_w_symtype(block, type).value
+                        else:
+                            logging.debug(
+                                "0x%x: %s: external symbol reference skipped",
+                                from_addr,
+                                symbol.name,
+                            )
+                            continue
+                    else:
+                        to_addr = tblock.address
+                        kind = ref_kind(block, tblock).value
 
                     ref = refInf.ref.add()
                     update_ref(m, ref, from_addr, to_addr, kind)
@@ -221,6 +246,7 @@ def dumpRefs(ir: gtirb.IR, output: Path) -> None:
         logging.info("Collect Refs done! ready to write output...")
         with open(output, "wb") as f:
             f.write(refInf.SerializeToString())
+        logging.info("Done writing refs to %s", output)
 
 
 class FileType(Enum):
@@ -311,10 +337,10 @@ if __name__ == "__main__":
     if mode == ExtractMode.BB:
         logging.info("Dump blocks...")
         dumpBlocks(ir, args.output)
-        logging.info("Done dumping blocks to %s", args.output)
+        logging.info("Done dumping blocks")
     elif mode == ExtractMode.REF:
         logging.info("Dump refs...")
-        dumpRefs(ir, args.output)
-        logging.info("Done dumping refs to %s", args.output)
+        dumpRefs(args.input, ir, args.output)
+        logging.info("Done dumping refs.")
 
     logging.info("All done.")
