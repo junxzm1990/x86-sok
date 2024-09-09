@@ -22,8 +22,10 @@ try:
     from elftools.elf.dynamic import DynamicSection
     from BlockUtil import *
     import bbinfoconfig as bbl
-except ImportError:
-    logging.critical("You need to install the following packages: elftools")
+except ImportError as e:
+    logging.critical(
+        "You need to install the following packages: elftools", e
+    )
     sys.exit(1)
 
 class ELFParser:

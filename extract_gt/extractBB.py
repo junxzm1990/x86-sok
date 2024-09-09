@@ -7,7 +7,7 @@ reference: https://github.com/kevinkoo001/CCR
 """
 
 import logging
-from deps import *
+from .deps import *
 from reorderInfo import *
 import optparse
 import blocks_pb2

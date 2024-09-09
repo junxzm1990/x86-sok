@@ -1,4 +1,4 @@
-from deps import *
+from .deps import *
 import optparse
 import logging
 import blocks_pb2
