@@ -1,0 +1,23 @@
+[build-system]
+requires = [
+  "setuptools>=61.0",
+  "wheel",
+]
+
+[project]
+name = "x86-sok"
+version = "0.1.0"
+description = "ground truth extraction from binary"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = [
+  "ccr",
+  "compare",
+  "extract_gt",
+  "protobuf_def",
+]
