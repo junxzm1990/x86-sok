@@ -11,7 +11,7 @@ description = "ground truth extraction from binary"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-  "capstone",
+  "capstone==4.0.2",
   "protobuf",
   "pyelftools",
   "sqlalchemy",
