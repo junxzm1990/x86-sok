@@ -3305,8 +3305,7 @@ Layout::reset_relax_output()
                                         + out_offsets[pfrom_object->get_text_shndx(text_fixup_tuple.section_name(), dup_section_order)]);
                 pfixuptuple->set_deref_sz(text_fixup_tuple.deref_sz());
                 pfixuptuple->set_is_rela(text_fixup_tuple.is_rela());
-		// binpang, comment it out for now
-                /*if((is_special_section_by_name(text_fixup_tuple.section_name().c_str()))){
+                if((is_special_section_by_name(text_fixup_tuple.section_name().c_str()))){
 #ifdef CCR_MSG_DETAILS
                     gold_info("found special section %s fixup, add to central bin, offset %x, shn[%d] offset %x",
                               text_fixup_tuple.section_name().c_str(), pfixuptuple->offset()
@@ -3320,11 +3319,11 @@ Layout::reset_relax_output()
                                                   +std::string("@")+pfrom_object->name());
 #endif
                 }
-                else{*/
+                else{
                     pfixuptuple->set_type(0); //set to C2C by default, so we cover compiler resolved ones
 		    // binpang, May cause the error...
                     // assert(dup_section_order == 0 && "WTF dup_order for non-special section is non-zero@layout.cc:2916");
-               // }
+                }
               
                 // CCR: added two optional fields for JT information (for pic/pie option)
                 //      a) # of JTEs (jump table entries), b) the size of each entry
