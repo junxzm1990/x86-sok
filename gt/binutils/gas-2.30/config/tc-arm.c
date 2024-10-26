@@ -3684,7 +3684,10 @@ emit_insn (expressionS *exp, int nbytes)
     }
   else
     as_bad (_("constant expression required"));
-
+  if (mbbs_list_tail) 
+  {
+	  mbbs_list_tail->size += size;
+  }
   return (size != 0);
 }
 
